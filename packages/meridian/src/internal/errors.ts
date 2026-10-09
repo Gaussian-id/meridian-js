@@ -69,7 +69,7 @@ export interface MeridianError {
 export type Result<T> = { data: T; error: null } | { data: null; error: MeridianError }
 
 export interface EngineEnvelope {
-  error: { message: string; type: string; code: string; request_id?: string }
+  error: { message: string; type: string; code: string; request_id?: string; retryable?: boolean }
 }
 
 /** HTTP status per code (meridian-domain/src/error.rs:142-164). */
@@ -162,7 +162,9 @@ export function errorFromEnvelope(envelope: EngineEnvelope, status?: number): Me
     type,
     status: resolved,
     message: envelope.error.message,
-    retryable: RETRYABLE.has(code),
+
+    // A forwarding route marks its generic errors retryable:false, so a browser does not hammer an app that is out of credit
+    retryable: envelope.error.retryable === false ? false : RETRYABLE.has(code),
     ...(envelope.error.request_id ? { requestId: envelope.error.request_id } : {})
   }
 }

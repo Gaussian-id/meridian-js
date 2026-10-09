@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createClient } from 'meridian'
+import { createBrowserClient } from 'meridian/browser'
 import { createForwardHandler } from 'meridian/server'
 
 import { HIDDEN_FORWARD_CODES } from '../src/internal/errors'
@@ -360,14 +361,14 @@ describeFake('lazy client', () => {
     expect(calls).toBe(2)
   })
 
-  it('answers with the refused client error, not a throw, when the key is missing', async () => {
+  it('answers the generic 503, not a throw, when the key is missing', async () => {
     const handler = createForwardHandler({ client: () => createClient('http://engine.test', ''), authorize: allowAll })
 
     const response = await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
     const json = (await response.json()) as { error: { code: string } }
 
-    expect(response.status).toBe(502)
-    expect(json.error.code).toBe('invalid_request')
+    expect(response.status).toBe(503)
+    expect(json.error.code).toBe('service_unavailable')
   })
 
   it('answers an error response when the factory itself throws', async () => {
@@ -380,7 +381,7 @@ describeFake('lazy client', () => {
 
     const response = await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
 
-    expect(response.status).toBe(502)
+    expect(response.status).toBe(503)
   })
 })
 
@@ -398,7 +399,7 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
 
     const response = await handler(post(ask))
     const text = await response.text()
-    const json = JSON.parse(text) as { error: Record<string, string> }
+    const json = JSON.parse(text) as { error: Record<string, string | boolean> }
 
     expect(response.status).toBe(503)
     expect(response.headers.get('retry-after')).toBeNull()
@@ -406,6 +407,7 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
       message: 'The service is temporarily unavailable.',
       type: 'api_error',
       code: 'service_unavailable',
+      retryable: false,
       request_id: 'req_hidden_1'
     })
     expect(text).not.toContain(code)
@@ -536,5 +538,73 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
     engine.fake!.next({ chunks: [big, frame('[DONE]')] })
 
     expect(await (await handler(post({ ...ask, stream: true }))).text()).toBe(big + frame('[DONE]'))
+  })
+})
+
+describe('createForwardHandler setup errors', () => {
+  const messages = [{ role: 'user', content: 'hi' }]
+
+  const expectGeneric503 = async (response: Response) => {
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(JSON.parse(text)).toEqual({
+      error: {
+        message: 'The service is temporarily unavailable.',
+        type: 'api_error',
+        code: 'service_unavailable',
+        retryable: false
+      }
+    })
+    expect(text).not.toMatch(/key|MERIDIAN|NUXT_|url/i)
+  }
+
+  it('answers the generic 503 when the server client has no key, buffered and streamed', async () => {
+    const client = createClient('http://engine.test', '')
+    const handler = createForwardHandler({ client, authorize: allowAll })
+
+    await expectGeneric503(await handler(post({ messages })))
+    await expectGeneric503(await handler(post({ messages, stream: true })))
+  })
+
+  it('answers the generic 503 when the server client has no url', async () => {
+    const handler = createForwardHandler({ client: createClient('', 'gmr_x'), authorize: allowAll })
+
+    await expectGeneric503(await handler(post({ messages })))
+  })
+
+  it('answers the generic 503 when the client factory throws', async () => {
+    const handler = createForwardHandler({
+      client: () => {
+        throw new Error('MERIDIAN_KEY is not set')
+      },
+      authorize: allowAll
+    })
+
+    await expectGeneric503(await handler(post({ messages })))
+  })
+
+  it('still returns the real config error from the server client itself', async () => {
+    const { error } = await createClient('http://engine.test', '').chat.create({ messages: [] })
+
+    expect(error?.type).toBe('client_error')
+    expect(error?.message).toMatch(/key/i)
+  })
+
+  it('marks the forwarded hidden-code and generic errors as not retryable in the browser client', async () => {
+    const { engine, handler } = setup()
+
+    engine.fake!.next(engineError('insufficient_credit'))
+
+    const browser = createBrowserClient({
+      route: 'http://app.test/api/meridian/chat',
+      maxRetries: 0,
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) => handler(new Request(input, init))) as typeof fetch
+    })
+
+    const { error } = await browser.chat.create({ messages: [{ role: 'user', content: 'hi' }] })
+
+    expect(error?.code).toBe('service_unavailable')
+    expect(error?.retryable).toBe(false)
   })
 })

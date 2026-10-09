@@ -20,7 +20,7 @@
     "check:bundle": "node scripts/check-browser-bundle.mjs",
     "smoke:runtime": "node scripts/runtime-smoke.mjs",
     "check:frameworks": "node scripts/check-framework-builds.mjs",
-    "gate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:drift && pnpm build && pnpm check:bundle && pnpm smoke:runtime",
+    "gate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:drift && pnpm build && pnpm check:bundle && pnpm smoke:runtime && pnpm check:frameworks",
     "prepare": "husky"
   },
   "lint-staged": {

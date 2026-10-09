@@ -50,14 +50,15 @@ function genericEnvelope(requestId?: string) {
       message: 'The service is temporarily unavailable.',
       type: 'api_error',
       code: 'service_unavailable',
+      retryable: false,
       ...(requestId ? { request_id: requestId } : {})
     }
   }
 }
 
-/** The error response for the browser: the app's own key and billing refusals become a generic 503. */
+/** The error response for the browser: the app's own key and billing refusals, and any setup error (client_error), become a generic 503. */
 function browserError(error: MeridianError): Response {
-  if (!HIDDEN.has(error.code)) return errorResponse(error)
+  if (!HIDDEN.has(error.code) && error.type !== 'client_error') return errorResponse(error)
 
   const headers = new Headers({ 'content-type': 'application/json' })
 
@@ -240,7 +241,7 @@ export function createForwardHandler(options: ForwardHandlerOptions): (request: 
     try {
       client = typeof options.client === 'function' ? options.client() : options.client
     } catch {
-      return errorResponse(configError('The Meridian client could not be created.'))
+      return browserError(configError('The Meridian client could not be created.'))
     }
 
     if (body.stream === true) {

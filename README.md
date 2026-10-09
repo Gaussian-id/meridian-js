@@ -2,7 +2,7 @@
 
 TypeScript client SDK for the Meridian engine. Zero runtime dependencies. Runs on Node 18+, Bun, Deno and edge runtimes.
 
-> The package names (`meridian`, `meridian-react` and so on) are working names (O47). All packages are `"private": true` until the names, scope and public date are decided.
+> The package names (`meridian`, `meridian-next`, `meridian-nuxt`, `meridian-expo`) are working names (O47). All packages are `"private": true` until the names, scope and public date are decided, so none of them can be installed from a registry yet.
 
 ## Install
 
@@ -24,11 +24,12 @@ import { createClient } from 'npm:meridian'
 
 Every public call returns `{ data, error }`. API errors are never thrown.
 
-| Entry              | Runs in                 | Holds a key |
-| ------------------ | ----------------------- | ----------- |
-| `meridian`         | server code only        | yes         |
-| `meridian/browser` | the browser             | never       |
-| `meridian/server`  | your app server (route) | no          |
+| Entry              | Runs in                 | Holds a key  |
+| ------------------ | ----------------------- | ------------ |
+| `meridian`         | server code only        | yes          |
+| `meridian/browser` | the browser             | never        |
+| `meridian/server`  | your app server (route) | no           |
+| `meridian/admin`   | server code only        | yes (`gmi_`) |
 
 Keys never go in the browser. `createClient` refuses to run in a browser or React Native.
 
@@ -40,7 +41,7 @@ import { createClient } from 'meridian'
 const meridian = createClient('https://YOUR-MERIDIAN-URL', process.env.MERIDIAN_KEY!)
 const { data, error } = await meridian.chat.create({ messages: [{ role: 'user', content: 'hello' }] })
 if (error) console.error(error.code, error.message, error.requestId)
-else console.log(data.choices[0].message.content)
+else console.log(data.choices[0]?.message.content)
 ```
 
 Streaming: `const { data: stream } = await meridian.chat.stream({ messages })`, then `await stream.text()`. List models with `meridian.models.list()`.
@@ -87,6 +88,85 @@ Forwarding notes:
 
 > `ChatParams` accepts extra keys because the engine forwards unknown request fields. A typo such as `temprature` is therefore not a compile error.
 
+### `meridian/admin`: the admin client
+
+Provisioning with an integrator key (`gmi_`). Server-only: like `createClient`, it refuses to run in a browser or React Native.
+
+```ts
+import { createAdminClient } from 'meridian/admin'
+
+const admin = createAdminClient('https://YOUR-MERIDIAN-ADMIN-URL', process.env.MERIDIAN_ADMIN_KEY!)
+const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_reference: 'acme-1' })
+```
+
+The 23 operations at a glance (every call returns `{ data, error }`):
+
+| Group                 | Operations                                  |
+| --------------------- | ------------------------------------------- |
+| `orgs`                | `create`, `get`, `getByReference`, `list`   |
+| `projects`            | `create`, `get`, `list`, `update`, `delete` |
+| `keys`                | `create`, `list`, `revoke`                  |
+| `providerCredentials` | `list`, `put`, `delete`                     |
+| `projectModels`       | `get`, `put`                                |
+| `catalogue`           | `list`, `get`                               |
+| `models`              | `list`, `get`                               |
+| `analytics`           | `usage`                                     |
+| `logs`                | `list`                                      |
+
+`keys.create` returns the new `api_key` once, so store it. Cost and price fields are stripped from every reply: they never appear in the types or the data.
+
+## Framework packages
+
+All are private working names until O47. The browser never holds a key in any of them.
+
+### `meridian-next`
+
+Set `MERIDIAN_URL` and `MERIDIAN_KEY` on the server. The server client is built per request from them.
+
+```ts
+// app/api/meridian/chat/route.ts (App Router)
+import { createRouteHandler } from 'meridian-next'
+
+export const { POST } = createRouteHandler({ authorize: async request => (await getSession(request)) !== null })
+```
+
+```ts
+// pages/api/meridian/chat.ts (Pages Router)
+import { createPagesHandler } from 'meridian-next/pages'
+
+export default createPagesHandler({ authorize: async request => (await getSession(request)) !== null })
+```
+
+In components, use `createBrowserClient()` from `meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` gives a server client for route handlers and server actions.
+
+### `meridian-nuxt`
+
+Add the module and set the private runtime config `NUXT_MERIDIAN_URL` and `NUXT_MERIDIAN_KEY` (`runtimeConfig.meridian.url` and `.key`). They are never sent to the browser.
+
+```ts
+// nuxt.config.ts
+export default defineNuxtConfig({ modules: ['meridian-nuxt'] })
+
+// server/api/meridian/chat.post.ts
+import { defineMeridianHandler } from 'meridian-nuxt/server'
+
+export default defineMeridianHandler({ authorize: async request => (await getSession(request)) !== null })
+```
+
+In components, call `useMeridian()`; it is preset to `/api/meridian/chat`.
+
+### `meridian-expo`
+
+A mobile app has no page origin and never holds a key. Pass the **absolute** URL of your backend's forwarding route:
+
+```ts
+import { createBrowserClient } from 'meridian-expo'
+
+const meridian = createBrowserClient({ route: 'https://api.example.com/api/meridian/chat' })
+```
+
+It streams over Expo's fetch. The backend route is any `meridian/server` forwarding handler.
+
 ## Direct API
 
 No SDK needed. Use the engine's chat endpoint:
@@ -101,6 +181,6 @@ To generate your own client, use `spec/meridian-public.json` and `spec/meridian-
 
 ## Development
 
-`pnpm gate` runs lint, format check, typecheck, tests, spec drift, build, the browser-bundle check and the runtime smoke test. The smoke script also runs on Bun (`bun scripts/runtime-smoke.mjs`) and Deno (`deno run --allow-read scripts/runtime-smoke.mjs`).
+`pnpm gate` runs lint, format check, typecheck, tests, spec drift, build, the browser-bundle check, the runtime smoke test and `check:frameworks` (builds the Next and Nuxt fixtures and proves no key reaches a client bundle). The smoke script also runs on Bun (`bun scripts/runtime-smoke.mjs`) and Deno (`deno run --allow-read scripts/runtime-smoke.mjs`).
 
 Licence: Apache-2.0.

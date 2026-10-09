@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-import { createForwardRoute, type RouteHandlerOptions } from './index'
+import { createForwardRoute, type RouteHandlerOptions } from './forward-route'
 
 type PagesRequest = IncomingMessage & { body?: unknown }
 

@@ -61,4 +61,22 @@ describe('meridian-nuxt', () => {
     expect(result.data).toBeNull()
     expect(result.error?.message).toContain('NUXT_MERIDIAN_KEY')
   })
+
+  it('never shows the browser a setup error: missing runtime config gives the generic 503', async () => {
+    const web = toWebHandler(createApp().use('/api/meridian/chat', defineMeridianHandler({ authorize: () => true })))
+
+    const response = await web(
+      new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+      })
+    )
+
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(JSON.parse(text).error.code).toBe('service_unavailable')
+    expect(text).not.toMatch(/key|MERIDIAN|NUXT_|runtimeConfig/i)
+  })
 })

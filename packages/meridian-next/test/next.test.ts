@@ -38,6 +38,27 @@ describe('meridian-next', () => {
     expect(error?.code).toBe('invalid_request')
   })
 
+  it('never shows the browser a setup error: a missing MERIDIAN_KEY gives the generic 503', async () => {
+    vi.stubEnv('MERIDIAN_URL', 'http://engine.test')
+    vi.stubEnv('MERIDIAN_KEY', '')
+
+    const { POST } = createRouteHandler({ authorize: () => true })
+
+    const response = await POST(
+      new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: json,
+        body: JSON.stringify({ messages })
+      })
+    )
+
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(JSON.parse(text).error.code).toBe('service_unavailable')
+    expect(text).not.toMatch(/key|MERIDIAN|NUXT_/i)
+  })
+
   it('gives an App Router POST that streams', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
@@ -69,7 +90,7 @@ describe('meridian-next', () => {
       })
     )
 
-    expect(((await response.json()) as { error: { code: string } }).error.code).toBe('invalid_request')
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe('service_unavailable')
   })
 
   it.runIf(!contract)('hides a revoked app key from the browser behind the route', async () => {

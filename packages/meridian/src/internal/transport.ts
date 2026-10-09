@@ -69,9 +69,12 @@ type Attempt =
   { kind: 'response'; opened: Opened } | { kind: 'error'; error: MeridianError; retryAfterMs: number | null }
 
 export function createTransport(config: TransportConfig): Transport {
-  const timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
+  const timeout = Number.isFinite(config.timeout) && config.timeout! > 0 ? config.timeout! : DEFAULT_TIMEOUT_MS
   const base = config.baseUrl.replace(/\/+$/, '')
-  const maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES)
+
+  const maxRetries = Number.isFinite(config.maxRetries)
+    ? Math.max(0, Math.floor(config.maxRetries!))
+    : DEFAULT_MAX_RETRIES
 
   function urlFor(call: Call): string {
     const query = new URLSearchParams()
