@@ -1,56 +1,25 @@
-// HAND-WRITTEN until Task 9 replaces the request and response types with ones derived from generated/public.ts.
+import type { paths } from './generated/public'
 import type { MeridianError, Result } from './internal/errors'
+import type { OkBody, OkEvent, RequestBody } from './internal/openapi'
 
 export type { MeridianError, MeridianErrorCode, MeridianErrorType, Result } from './internal/errors'
 
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string | null
-  name?: string
-  tool_call_id?: string
-}
+type ChatOperation = paths['/v1/chat/completions']['post']
 
-export interface ChatParams {
-  messages: ChatMessage[]
-  model?: string
-  temperature?: number
-  top_p?: number
-  max_tokens?: number
-  stop?: string | string[]
-  tools?: unknown[]
-  tool_choice?: unknown
-  response_format?: unknown
-  user?: string
-}
+/** The request, minus `stream` and `stream_options`: `chat.create` and `chat.stream` own those. */
+export type ChatParams = Omit<RequestBody<ChatOperation>, 'stream' | 'stream_options'>
+export type ChatMessage = ChatParams['messages'][number]
+export type ChatCompletion = OkBody<ChatOperation>
+export type Usage = ChatCompletion['usage']
+export type Model = OkBody<paths['/v1/models']['get']> extends { data: (infer M)[] } ? M : never
 
-export interface Usage {
-  prompt_tokens: number | null
-  completion_tokens: number | null
-  total_tokens: number | null
-}
+type ChunkEvent = OkEvent<ChatOperation>
 
-export interface ChatCompletion {
-  id: string
-  object: 'chat.completion'
-  created: number
-  model: string
-  choices: { index: number; message: { role: 'assistant'; content: string | null }; finish_reason: string | null }[]
-  usage?: Usage
-}
-
-export interface ChatChunkRaw {
-  id: string
-  object: 'chat.completion.chunk'
-  created: number
-  model: string
-  choices: { index: number; delta: { content?: string | null; role?: string }; finish_reason: string | null }[]
-  usage?: Usage
-}
-
-export interface Model {
-  id: string
-  object: 'model'
-  owned_by: string
+/** A raw chunk. The spec leaves the provider delta open, so the delta is typed by what the SDK reads from it. */
+export type ChatChunkRaw = Omit<ChunkEvent, 'choices'> & {
+  choices: (Omit<ChunkEvent['choices'][number], 'delta'> & {
+    delta: { content?: string | null; role?: string; [key: string]: unknown }
+  })[]
 }
 
 export interface ClientOptions {

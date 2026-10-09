@@ -72,8 +72,259 @@ export interface paths {
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
-    responses: never;
+    schemas: {
+        /** @description The assistant message in a buffered reply. */
+        AssistantMessage: {
+            /** @description Always present; `null` when the reply had no text content. */
+            content: string | null;
+            /** @description Present only when the reply had reasoning text. */
+            reasoning?: string;
+            /** @description Present only when the reply had reasoning text. */
+            reasoning_content?: string;
+            /** @description Present only when the reply was a refusal. */
+            refusal?: string;
+            role: components["schemas"]["AssistantRole"];
+            /** @description Present only when the model called tools. */
+            tool_calls?: components["schemas"]["ToolCall"][];
+        };
+        /**
+         * @description The `role` of a reply's message.
+         * @enum {string}
+         */
+        AssistantRole: "assistant";
+        /** @description The one choice of a buffered reply. */
+        ChatChoice: {
+            finish_reason: components["schemas"]["FinishReasonName"];
+            /** Format: int32 */
+            index: number;
+            message: components["schemas"]["AssistantMessage"];
+        };
+        /** @description A buffered reply. */
+        ChatCompletion: {
+            /** @description Exactly one choice. */
+            choices: components["schemas"]["ChatChoice"][];
+            /**
+             * Format: int64
+             * @description Unix seconds when the request started.
+             */
+            created: number;
+            /** @description `chatcmpl-<request id>`. */
+            id: string;
+            /** @description The model that served, after any routing and fallback. */
+            model: string;
+            object: components["schemas"]["CompletionObject"];
+            /** @description The token counts; `{}` when the provider reported none. */
+            usage: components["schemas"]["Usage"];
+        };
+        /** @description One server-sent event of a streamed reply. */
+        ChatCompletionChunk: {
+            /** @description One choice, or none on the usage chunk. */
+            choices: components["schemas"]["ChunkChoice"][];
+            /** Format: int64 */
+            created: number;
+            id: string;
+            model: string;
+            object: components["schemas"]["ChunkObject"];
+            /** @description Only on the usage chunk. */
+            usage?: components["schemas"]["Usage"];
+        };
+        /** @description A chat request. Fields the engine does not read are forwarded to the provider unchanged. */
+        ChatCompletionRequest: {
+            /**
+             * Format: int32
+             * @description The output cap; the smaller of this and `max_tokens` applies. At least 1.
+             */
+            max_completion_tokens?: number | null;
+            /**
+             * Format: int32
+             * @description The output cap; the smaller of this and `max_completion_tokens` applies. At least 1.
+             */
+            max_tokens?: number | null;
+            /** @description At least one message. */
+            messages: components["schemas"]["ChatMessage"][];
+            /**
+             * @description A catalogue model id, or `meridian/auto`. Absent or `null` means `meridian/auto` (D-25).
+             * @example meridian/auto
+             */
+            model?: string | null;
+            /**
+             * Format: int32
+             * @description Must be 1 when present: one choice is served.
+             */
+            n?: number | null;
+            /** @description `{"type": "json_object"}` or `{"type": "json_schema", …}` needs JSON output support. */
+            response_format?: unknown;
+            /** @description One stop sequence or a list of them. */
+            stop?: unknown;
+            /** @description Stream the reply as server-sent events. */
+            stream?: boolean | null;
+            stream_options?: components["schemas"]["StreamOptions"] | null;
+            /**
+             * Format: double
+             * @description Sampling temperature, forwarded.
+             */
+            temperature?: number | null;
+            /** @description Tool choice, in the OpenAI shape. */
+            tool_choice?: unknown;
+            /** @description Tools, in the OpenAI shape. A non-empty list needs a model with tool support. */
+            tools?: Record<string, never>[] | null;
+            /**
+             * Format: double
+             * @description Nucleus sampling, forwarded.
+             */
+            top_p?: number | null;
+        };
+        /** @description One message of the conversation. */
+        ChatMessage: {
+            content?: components["schemas"]["MessageContent"] | null;
+            /** @description `system`, `developer`, `user`, `assistant` or `tool`. */
+            role: string;
+        };
+        /** @description The choice of a chunk: a delta, and the finish reason on the last one. */
+        ChunkChoice: {
+            /**
+             * @description The provider delta, forwarded: `content`, `reasoning`, `tool_calls` pieces, or `{}` at
+             *     the finish.
+             */
+            delta: Record<string, never>;
+            finish_reason: components["schemas"]["FinishReasonName"] | null;
+            /** Format: int32 */
+            index: number;
+        };
+        /**
+         * @description The `object` of a streamed chunk.
+         * @enum {string}
+         */
+        ChunkObject: "chat.completion.chunk";
+        /**
+         * @description The `object` of a buffered reply.
+         * @enum {string}
+         */
+        CompletionObject: "chat.completion";
+        /** @description Completion detail counts. */
+        CompletionTokensDetails: {
+            /** Format: int64 */
+            reasoning_tokens: number;
+        };
+        /** @description One part of a message content. An `image_url` part needs a model with vision support. */
+        ContentPart: {
+            /** @description The text. */
+            text: string;
+            /** @enum {string} */
+            type: "text";
+        } | {
+            /** @description The image. */
+            image_url: components["schemas"]["ImageUrl"];
+            /** @enum {string} */
+            type: "image_url";
+        };
+        ErrorBody: {
+            /** @enum {string} */
+            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
+            message: string;
+            /** Format: uuid */
+            request_id: string;
+            /** @enum {string} */
+            type: "api_error" | "authentication_error" | "invalid_request_error" | "permission_error" | "rate_limit_error";
+        };
+        ErrorEnvelope: {
+            error: components["schemas"]["ErrorBody"];
+        };
+        /**
+         * @description The four finish reasons.
+         * @enum {string}
+         */
+        FinishReasonName: "stop" | "length" | "tool_calls" | "content_filter";
+        /** @description `GET /health`. */
+        Health: {
+            status: string;
+        };
+        /** @description The image of an `image_url` part. */
+        ImageUrl: {
+            /** @description `auto`, `low` or `high`; forwarded. */
+            detail?: string | null;
+            /** @description An https URL or a data URL. */
+            url: string;
+        };
+        /**
+         * @description The `object` of the model list.
+         * @enum {string}
+         */
+        ListObject: "list";
+        /** @description A message content: plain text, or a list of typed parts. */
+        MessageContent: string | components["schemas"]["ContentPart"][];
+        /** @description `GET /v1/models`. */
+        ModelList: {
+            data: components["schemas"]["ModelObject"][];
+            object: components["schemas"]["ListObject"];
+        };
+        /** @description One model the key may use; `meridian/auto` first when there is something to route among. */
+        ModelObject: {
+            id: string;
+            object: components["schemas"]["ModelObjectKind"];
+            /** @description The provider, or `meridian` for `meridian/auto`. */
+            owned_by: string;
+        };
+        /**
+         * @description The `object` of one model.
+         * @enum {string}
+         */
+        ModelObjectKind: "model";
+        /** @description Prompt detail counts; each is present only when known. */
+        PromptTokensDetails: {
+            /** Format: int64 */
+            cache_write_tokens?: number;
+            /** Format: int64 */
+            cached_tokens?: number;
+        };
+        /** @description `GET /ready`: 200 with `ready: true`, or 503 with `ready: false` and the failing checks. */
+        Ready: {
+            /** @description The failing checks (`database`, `catalogue`, `limiter`); absent when ready. */
+            failing?: string[];
+            ready: boolean;
+        };
+        /** @description Streaming options. */
+        StreamOptions: {
+            /** @description End the stream with a usage chunk (`choices: []`) before `[DONE]`. */
+            include_usage?: boolean | null;
+        };
+        /** @description One merged tool call. */
+        ToolCall: {
+            function: components["schemas"]["ToolCallFunction"];
+            id: string;
+            type: string;
+        };
+        /** @description A tool call function. */
+        ToolCallFunction: {
+            arguments: string;
+            name: string;
+        };
+        /**
+         * @description Token counts in the OpenAI names. A count the provider did not report is absent;
+         *     `total_tokens` only when input and output are both known. Never a price or cost (D-27).
+         */
+        Usage: {
+            /** Format: int64 */
+            completion_tokens?: number;
+            completion_tokens_details?: components["schemas"]["CompletionTokensDetails"];
+            /** Format: int64 */
+            prompt_tokens?: number;
+            prompt_tokens_details?: components["schemas"]["PromptTokensDetails"];
+            /** Format: int64 */
+            total_tokens?: number;
+        };
+    };
+    responses: {
+        /** @description The error envelope; the request id is also in `x-request-id` */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -90,15 +341,17 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Alive */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Health"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     public_ops_ready: {
@@ -110,15 +363,26 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Success */
+            /** @description Ready */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["Ready"];
                 };
             };
+            /** @description A check fails */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ready"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     public_chat_chat_completions: {
@@ -130,19 +394,22 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["ChatCompletionRequest"];
             };
         };
         responses: {
-            /** @description Success */
+            /** @description A completion, or (with stream: true) server-sent events of chunks ending in data: [DONE]. Once streaming has begun a failure arrives as one last data: {"error":{...}} frame (the error envelope) with no data: [DONE] */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ChatCompletion"];
+                    "text/event-stream": components["schemas"]["ChatCompletionChunk"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     public_models_list_models: {
@@ -160,9 +427,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelList"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
 }

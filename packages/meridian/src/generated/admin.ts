@@ -764,6 +764,93 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description A user's status on the wire.
+         * @enum {string}
+         */
+        AccountStatusName: "active" | "suspended";
+        /**
+         * @description `POST /v1/onboarding/advance`: the step the caller expects to leave. Other fields the console
+         *     sends are ignored.
+         */
+        AdvanceOnboarding: {
+            /**
+             * @description The step the caller expects to leave: `welcome`, `survey`, `profile`, `create_org`,
+             *     `create_project`, `api_key` or `finish`.
+             */
+            from: string;
+        };
+        /** @description An audit event on the wire. */
+        AuditEventBody: {
+            /** @description The action, such as `organisation.create`. */
+            action: string;
+            actor_email: string;
+            actor_id: string;
+            /** @description What kind of principal acted. */
+            actor_kind: string;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            id: string;
+            /** @description The operator's note; `null` when none was given. */
+            reason: string | null;
+            target_id: string;
+            target_type: string;
+        };
+        /** @description The newest audit events, newest first. */
+        AuditPage: {
+            actions: components["schemas"]["AuditEventBody"][];
+        };
+        /** @description A model of the active catalogue, as a customer sees it. */
+        CatalogueModelBody: {
+            capabilities: components["schemas"]["ModelCapabilities"];
+            /**
+             * Format: int32
+             * @description The context window, in tokens.
+             */
+            context_tokens: number;
+            id: string;
+            /**
+             * Format: int32
+             * @description The longest reply, in tokens.
+             */
+            max_output_tokens: number;
+            provider: string;
+        };
+        /** @description `PATCH /v1/orgs/{org}/members/{member}`: the new role. */
+        ChangeRole: {
+            /** @description The role to give: `owner`, `admin` or `developer`. */
+            role_id: string;
+        };
+        /** @description A control action's answer. */
+        ControlBody: {
+            /** @description What was done: `lock`, `suspend` or `reactivate`. */
+            action: string;
+            /** @description RFC 3339, UTC; `null` unless the target is locked. */
+            locked_until: string | null;
+            /** @description The status now: `active`, `locked` or `suspended`. */
+            status: string;
+            /** @description The record's id. */
+            target_id: string;
+            /** @description What was changed: `organisation`, `project` or `user`. */
+            target_type: string;
+        };
+        /** @description `POST /v1/orgs`: a name, optional slug and integrator-only external reference. */
+        CreateOrganisation: {
+            /**
+             * @description An integrator's own id for this organisation. Integrators only; a repeat returns the
+             *     existing organisation (200).
+             */
+            external_reference?: string | null;
+            /** @description The organisation's name. */
+            name: string;
+            /** @description The organisation's slug; derived from the name when absent. */
+            slug?: string | null;
+        };
+        /** @description `POST /v1/orgs/{org}/projects`: the name. */
+        CreateProject: {
+            /** @description The project's name. */
+            name: string;
+        };
         CredentialMetadata: {
             created_at: string;
             hint: string;
@@ -773,9 +860,468 @@ export interface components {
         };
         /** @enum {string} */
         CredentialPolicy: "prefer" | "require";
+        ErrorBody: {
+            /** @enum {string} */
+            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
+            message: string;
+            /** Format: uuid */
+            request_id: string;
+            /** @enum {string} */
+            type: "api_error" | "authentication_error" | "invalid_request_error" | "permission_error" | "rate_limit_error";
+        };
+        ErrorEnvelope: {
+            error: components["schemas"]["ErrorBody"];
+        };
+        /** @description An integrator's credential metadata on the wire; never the secret. */
+        IntegratorBody: {
+            /** @description Whether the credential is neither revoked nor expired. */
+            active: boolean;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description RFC 3339, UTC; `null` when the credential does not expire. */
+            expires_at: string | null;
+            id: string;
+            /** @description RFC 3339, UTC; `null` until the credential is first used. */
+            last_used_at: string | null;
+            name: string;
+            /** @description The first characters of the credential, for recognising it. */
+            prefix: string;
+        };
+        /** @description `POST /v1/orgs/{org}/members`: who to invite, and as what. */
+        InviteMember: {
+            /** @description The address to invite. */
+            email: string;
+            /** @description The role to give: `owner`, `admin` or `developer`. */
+            role_id: string;
+        };
+        /** @description `POST /v1/admin/integrators`: a name, and how long the credential lasts. */
+        IssueIntegrator: {
+            /**
+             * Format: int32
+             * @description Days until the credential expires, from 1 to 3650; absent for no expiry.
+             */
+            expires_in_days?: number | null;
+            /** @description The integrator's name. */
+            name: string;
+        };
+        /** @description `POST …/keys`: everything is optional. */
+        IssueKey: {
+            /**
+             * Format: int32
+             * @description Days until the key expires; omit for a key that does not expire.
+             */
+            expires_in_days?: number | null;
+            /** @description A name a person can read. */
+            name?: string | null;
+            /**
+             * Format: int32
+             * @description Requests allowed per day; omit for no limit.
+             */
+            rate_limit_per_day?: number | null;
+            /**
+             * Format: int32
+             * @description Requests allowed per minute; omit for no limit.
+             */
+            rate_limit_per_minute?: number | null;
+        };
+        /** @description A newly issued integrator: the only reply that carries the credential. */
+        IssuedIntegrator: {
+            /** @description The `gmi_` secret, shown once: it is not stored and no later call returns it. */
+            credential: string;
+            /** @description RFC 3339, UTC; `null` when the credential does not expire. */
+            expires_at: string | null;
+            id: string;
+            name: string;
+            /** @description The first characters of the credential, for recognising it. */
+            prefix: string;
+        };
+        /** @description A newly issued key. This is the only response that carries the secret. */
+        IssuedKey: {
+            /** @description The `gmr_` secret, shown once: store it now, it cannot be retrieved again. */
+            api_key: string;
+            key_id: string;
+            /** @description The first characters of the key, for display. */
+            key_prefix: string;
+            /** @description A reminder that the secret is shown once. */
+            message: string;
+        };
+        /** @description A key as listed: never the secret, never the hash. */
+        KeyBody: {
+            /** @description Whether the key is neither revoked nor expired. */
+            active: boolean;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description RFC 3339, UTC; `null` when the key does not expire. */
+            expires_at: string | null;
+            id: string;
+            /** @description The first characters of the key, for display. */
+            key_prefix: string;
+            /** @description RFC 3339, UTC; `null` until the key is first used. */
+            last_used_at: string | null;
+            /** @description The name the key was given, or `null`. */
+            name: string | null;
+            project_id: string;
+            /**
+             * Format: int32
+             * @description Requests allowed per day, or `null` for no limit.
+             */
+            rate_limit_per_day: number | null;
+            /**
+             * Format: int32
+             * @description Requests allowed per minute, or `null` for no limit.
+             */
+            rate_limit_per_minute: number | null;
+        };
+        /** @description A page of the request log, newest first. */
+        LogPage: {
+            /** @description Whether older rows exist. */
+            has_more: boolean;
+            logs: components["schemas"]["LogRow"][];
+            /** @description Pass as `cursor` for the next page; `null` on the last page. */
+            next_cursor: string | null;
+        };
+        /** @description One request in the log. */
+        LogRow: {
+            /**
+             * Format: int64
+             * @description Always null: the engine holds no price (D-17).
+             */
+            cost_charged: number | null;
+            /** @description When it finished, RFC 3339, UTC. */
+            created_at: string;
+            /** @description The request's id. */
+            id: string;
+            /**
+             * Format: int64
+             * @description How long it took, in milliseconds.
+             */
+            latency_ms: number;
+            /** @description The model that served it, or `null` when none did. */
+            model: string | null;
+            /** @description The provider that served it, or `null` when none did. */
+            provider: string | null;
+            /** @description How it ended: `completed`, `failed` or `cancelled`. */
+            status: string;
+            /**
+             * Format: int64
+             * @description Input tokens, or `null` when the provider did not report them.
+             */
+            tokens_in: number | null;
+            /**
+             * Format: int64
+             * @description Output tokens, or `null` when the provider did not report them.
+             */
+            tokens_out: number | null;
+        };
+        /** @description The signed-in user. */
+        MeBody: {
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description The display name; `null` when the identity provider sent none. */
+            display_name: string | null;
+            email: string;
+            id: string;
+            /** @description Whether the user is a platform administrator. */
+            platform_admin: boolean;
+            status: components["schemas"]["AccountStatusName"];
+        };
+        /** @description A membership on the wire: a member who signed in, or an invitation. */
+        MemberBody: {
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description The member's display name; `null` for an invitation. */
+            display_name: string | null;
+            /** @description The member's address, or the invited one. */
+            email: string | null;
+            /** @description The membership's id. */
+            id: string;
+            org_id: string;
+            role_id: components["schemas"]["RoleName"];
+            status: components["schemas"]["MembershipStatusName"];
+            /** @description The member's user id; for an invitation no user holds yet, the membership's id. */
+            user_id: string;
+        };
+        /**
+         * @description Whether a member has signed in.
+         * @enum {string}
+         */
+        MembershipStatusName: "active" | "invited";
+        /**
+         * @description A project's allowlist: the request of `PUT …/models` (the whole list, replaced) and the
+         *     response of both `GET` and `PUT`.
+         */
+        ModelAllowlist: {
+            /** @description Catalogue model ids. An empty list allows no model. */
+            models: string[];
+        };
+        /** @description What a catalogue model supports. */
+        ModelCapabilities: {
+            json_output: boolean;
+            streaming: boolean;
+            tools: boolean;
+            vision: boolean;
+        };
+        /** @description One model's share of the usage. */
+        ModelPerformance: {
+            /**
+             * Format: int64
+             * @description Always null: the engine holds no price (D-17).
+             */
+            cost: number | null;
+            model: string;
+            /**
+             * Format: int64
+             * @description How many requests it served.
+             */
+            requests: number;
+            /**
+             * Format: int64
+             * @description Tokens used; `null` when any count is unknown.
+             */
+            tokens: number | null;
+        };
+        /** @description The caller's onboarding state on the wire. */
+        OnboardingBody: {
+            /** @description The steps already left, in order. */
+            completed_steps: components["schemas"]["OnboardingStepName"][];
+            current_step: components["schemas"]["OnboardingStepName"] | null;
+            /** @description Whether onboarding is completed. */
+            onboarding_completed: boolean;
+            /** @description Always `pending` for now. */
+            workspace_disposition: string;
+        };
+        /**
+         * @description A step of the console's onboarding, in its order.
+         * @enum {string}
+         */
+        OnboardingStepName: "welcome" | "survey" | "profile" | "create_org" | "create_project" | "api_key" | "finish";
+        /** @description An organisation on the wire. */
+        OrganisationBody: {
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            id: string;
+            /** Format: int64 */
+            member_count: number;
+            name: string;
+            /** Format: int64 */
+            project_count: number;
+            slug: string;
+            status: components["schemas"]["ResourceStatusName"];
+            /** @description RFC 3339, UTC. */
+            updated_at: string;
+        };
+        /** @description A parked usage export: metadata only, never the receiver's reply. */
+        ParkedUsageBody: {
+            event_id: string;
+            /** @description RFC 3339, UTC. */
+            parked_at: string;
+            /** @description A bounded failure classification; `null` when none was recorded. */
+            reason: string | null;
+            /**
+             * Format: int32
+             * @description The receiver's HTTP status; `null` when none was returned.
+             */
+            status: number | null;
+        };
+        /** @description The parked exports, oldest first. */
+        ParkedUsagePage: {
+            events: components["schemas"]["ParkedUsageBody"][];
+        };
+        /** @description A user's organisation and role, in a directory row. */
+        PlatformMembershipBody: {
+            org_id: string;
+            org_name: string;
+            role: components["schemas"]["RoleName"];
+        };
+        /**
+         * @description An organisation row on the wire. The billing columns are integer minor units, `0` until
+         *     billing exists.
+         */
+        PlatformOrgBody: {
+            /** Format: int64 */
+            bleed: number;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            id: string;
+            /** @description RFC 3339, UTC; `null` when the window holds no request. */
+            last_activity: string | null;
+            /** Format: int64 */
+            member_count: number;
+            name: string;
+            /** @description Always `none` for now. */
+            plan: string;
+            /** Format: int64 */
+            project_count: number;
+            /** Format: int64 */
+            provider_cost: number;
+            /** Format: int64 */
+            recovery_rate: number;
+            /**
+             * Format: int64
+             * @description Requests in the window.
+             */
+            requests: number;
+            /** Format: int64 */
+            revenue: number;
+            slug: string;
+            status: components["schemas"]["ResourceStatusName"];
+            /**
+             * Format: int64
+             * @description Tokens in the window; `null` when some are unknown.
+             */
+            tokens: number | null;
+            /** Format: int64 */
+            uncollected: number;
+            /** Format: int64 */
+            write_off_rate: number;
+            /** Format: int64 */
+            written_off: number;
+        };
+        /** @description One organisation and its projects. */
+        PlatformOrgDetail: {
+            org: components["schemas"]["PlatformOrgBody"];
+            projects: components["schemas"]["PlatformProjectBody"][];
+            /** @description Whether more projects exist than the bound shows. */
+            projects_incomplete: boolean;
+        };
+        /** @description The oldest organisations. */
+        PlatformOrgsPage: {
+            /** @description Whether more organisations exist than the bound shows. */
+            incomplete: boolean;
+            orgs: components["schemas"]["PlatformOrgBody"][];
+        };
+        /**
+         * @description A project row on the wire. The billing columns are integer minor units, `0` until billing
+         *     exists.
+         */
+        PlatformProjectBody: {
+            /** Format: int64 */
+            bleed: number;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            id: string;
+            /** Format: int64 */
+            key_count: number;
+            /** @description RFC 3339, UTC; `null` when the window holds no request. */
+            last_activity: string | null;
+            name: string;
+            org_id: string;
+            org_name: string;
+            /** @description Always `none` for now. */
+            plan: string;
+            /** Format: int64 */
+            provider_cost: number;
+            /** Format: int64 */
+            recovery_rate: number;
+            /**
+             * Format: int64
+             * @description Requests in the window.
+             */
+            requests: number;
+            /** Format: int64 */
+            revenue: number;
+            status: components["schemas"]["ResourceStatusName"];
+            /**
+             * Format: int64
+             * @description Tokens in the window; `null` when some are unknown.
+             */
+            tokens: number | null;
+            /** Format: int64 */
+            uncollected: number;
+            /** Format: int64 */
+            write_off_rate: number;
+            /** Format: int64 */
+            written_off: number;
+        };
+        /** @description One project. */
+        PlatformProjectDetail: {
+            project: components["schemas"]["PlatformProjectBody"];
+        };
+        /** @description The oldest projects. */
+        PlatformProjectsPage: {
+            /** @description Whether more projects exist than the bound shows. */
+            incomplete: boolean;
+            projects: components["schemas"]["PlatformProjectBody"][];
+        };
+        /** @description A user on the wire. */
+        PlatformUserBody: {
+            /** @description Whether the user may sign in (not suspended). */
+            active: boolean;
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description Always `null` until deletion exists. */
+            deletion_status: string | null;
+            email: string;
+            id: string;
+            /** @description Always `null` until activity is tracked. */
+            last_active_api: string | null;
+            /** @description Always `null` until activity is tracked. */
+            last_active_console: string | null;
+            onboarding_completed: boolean;
+            orgs: components["schemas"]["PlatformMembershipBody"][];
+            /** @description The display name, or the address when the user has none. */
+            username: string;
+        };
+        /** @description A page of users. */
+        PlatformUsersPage: {
+            /**
+             * Format: int64
+             * @description How many users match in all, beyond this page.
+             */
+            total: number;
+            users: components["schemas"]["PlatformUserBody"][];
+        };
+        /** @description A project on the wire. */
+        ProjectBody: {
+            /** @description RFC 3339, UTC. */
+            created_at: string;
+            /** @description A catalogue model id, or `null` when the project has no default. */
+            default_model: string | null;
+            id: string;
+            name: string;
+            org_id: string;
+            /** @description The project's short reference. */
+            ref: string;
+            status: components["schemas"]["ResourceStatusName"];
+        };
+        /**
+         * @description `PATCH /v1/orgs/{org}`: the new name, the only field M1 changes. Any other field (`plan`,
+         *     `status`, …) is refused, never silently ignored.
+         */
+        RenameOrganisation: {
+            /** @description The new name. */
+            name: string;
+        };
+        /** @description How many parked exports were queued again. */
+        RequeuedBody: {
+            /** Format: int64 */
+            requeued: number;
+        };
+        /**
+         * @description An organisation's status on the wire.
+         * @enum {string}
+         */
+        ResourceStatusName: "active" | "suspended" | "locked";
+        /** @description A role and the permissions the decision table gives it. */
+        RoleBody: {
+            id: components["schemas"]["RoleName"];
+            name: components["schemas"]["RoleName"];
+            /** @description Permission names such as `organisation:read`, in a fixed order. */
+            permissions: string[];
+        };
+        /**
+         * @description A role's name on the wire.
+         * @enum {string}
+         */
+        RoleName: "owner" | "admin" | "developer";
         SetCredential: {
             credential: string;
             policy?: components["schemas"]["CredentialPolicy"] | null;
+        };
+        /** @description The platform administrator's own answer. */
+        SuperadminBody: {
+            /** @description Always `true`: anyone else never reaches the route. */
+            superadmin: boolean;
         };
         SupplierCapabilities: {
             json_output: boolean;
@@ -815,8 +1361,103 @@ export interface components {
         };
         /** @enum {string} */
         SupplierRoutingClass: "light" | "standard" | "advanced";
+        /** @description The window a usage report covers. */
+        TimeRange: {
+            /** @description RFC 3339, UTC. */
+            end: string;
+            /** @description RFC 3339, UTC. */
+            start: string;
+        };
+        /**
+         * @description `PATCH /v1/orgs/{org}/projects/{project}`: exactly one of name, tenant status, or default
+         *     model. Null clears the default; omission leaves it unchanged.
+         *
+         *     Send exactly one of `name`, `status` (`active` or `suspended`) or `default_model`; `null`
+         *     clears the default.
+         */
+        UpdateProject: {
+            /** @description A catalogue model id; `null` clears the default. */
+            default_model?: string | null;
+            /** @description The new name. */
+            name?: string | null;
+            /** @description `active` or `suspended`. */
+            status?: string | null;
+        };
+        /** @description A project's usage over a window. */
+        UsageReport: {
+            /** @description Requests and tokens per model served. */
+            model_performance: components["schemas"]["ModelPerformance"][];
+            summary: components["schemas"]["UsageSummaryBody"];
+            time_range: components["schemas"]["TimeRange"];
+        };
+        /** @description The totals of a usage window. */
+        UsageSummaryBody: {
+            /**
+             * Format: int64
+             * @description The mean latency in milliseconds, rounded; 0 with no request.
+             */
+            average_latency_ms: number;
+            /**
+             * Format: double
+             * @description `1 - success_rate`; 0 with no request.
+             */
+            error_rate: number;
+            /**
+             * Format: int64
+             * @description The 95th percentile latency in milliseconds; 0 with no request.
+             */
+            p95_latency_ms: number;
+            /**
+             * Format: int64
+             * @description The 99th percentile latency in milliseconds; 0 with no request.
+             */
+            p99_latency_ms: number;
+            /**
+             * Format: int64
+             * @description How many of the newest request latencies informed the percentiles.
+             */
+            percentile_sample_count: number;
+            /** @description Whether the percentiles cover only the newest part of the window. */
+            percentiles_sampled: boolean;
+            /**
+             * Format: double
+             * @description Completed requests over all requests; 0 with no request.
+             */
+            success_rate: number;
+            /**
+             * Format: int64
+             * @description Those that completed.
+             */
+            successful_requests: number;
+            /**
+             * Format: int64
+             * @description Always null: the engine holds no price (D-17).
+             */
+            total_cost: number | null;
+            /**
+             * Format: int64
+             * @description Requests that finished in the window.
+             */
+            total_requests: number;
+            /**
+             * Format: int64
+             * @description Tokens used; `null` when any request's input or output count is unknown, 0 for an empty
+             *     window.
+             */
+            total_tokens: number | null;
+        };
     };
-    responses: never;
+    responses: {
+        /** @description The error envelope; the request id is also in `x-request-id` */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+    };
     parameters: never;
     requestBodies: never;
     headers: never;
@@ -862,9 +1503,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["AuditPage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     integrators_list: {
@@ -882,9 +1525,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IntegratorBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     integrators_issue: {
@@ -896,7 +1541,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["IssueIntegrator"];
             };
         };
         responses: {
@@ -906,9 +1551,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IssuedIntegrator"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     integrators_revoke: {
@@ -930,6 +1577,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_me: {
@@ -947,9 +1596,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["SuperadminBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_orgs: {
@@ -970,9 +1621,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlatformOrgsPage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_org: {
@@ -996,9 +1649,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlatformOrgDetail"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_lock_org: {
@@ -1024,9 +1679,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_reactivate_org: {
@@ -1050,9 +1707,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_suspend_org: {
@@ -1076,9 +1735,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_projects: {
@@ -1099,9 +1760,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlatformProjectsPage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_project: {
@@ -1125,9 +1788,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlatformProjectDetail"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_lock_project: {
@@ -1153,9 +1818,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_reactivate_project: {
@@ -1179,9 +1846,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_suspend_project: {
@@ -1205,9 +1874,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_parked_usage: {
@@ -1228,9 +1899,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ParkedUsagePage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_requeue_all_parked_usage: {
@@ -1248,9 +1921,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RequeuedBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_requeue_parked_usage: {
@@ -1271,9 +1946,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RequeuedBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     platform_users: {
@@ -1298,9 +1975,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["PlatformUsersPage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_reactivate_user: {
@@ -1324,9 +2003,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     lifecycle_suspend_user: {
@@ -1350,9 +2031,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ControlBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     usage_usage: {
@@ -1377,9 +2060,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["UsageReport"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     auth_me: {
@@ -1397,9 +2082,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MeBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     supplier_catalogue_active: {
@@ -1420,6 +2107,8 @@ export interface operations {
                     "application/json": components["schemas"]["SupplierCatalogueResponse"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     supplier_catalogue_version: {
@@ -1443,6 +2132,8 @@ export interface operations {
                     "application/json": components["schemas"]["SupplierCatalogueResponse"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     usage_logs: {
@@ -1467,9 +2158,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["LogPage"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     models_catalogue: {
@@ -1487,9 +2180,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CatalogueModelBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     models_one: {
@@ -1510,9 +2205,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CatalogueModelBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     onboarding_advance: {
@@ -1524,7 +2221,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["AdvanceOnboarding"];
             };
         };
         responses: {
@@ -1534,9 +2231,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OnboardingBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     onboarding_complete: {
@@ -1554,9 +2253,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OnboardingBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     onboarding_state: {
@@ -1574,9 +2275,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OnboardingBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_list: {
@@ -1594,9 +2297,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_create: {
@@ -1608,7 +2313,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["CreateOrganisation"];
             };
         };
         responses: {
@@ -1618,7 +2323,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"];
                 };
             };
             /** @description Created */
@@ -1627,9 +2332,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_by_reference: {
@@ -1650,9 +2357,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_get: {
@@ -1673,9 +2382,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_delete: {
@@ -1697,6 +2408,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     orgs_rename: {
@@ -1711,7 +2424,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["RenameOrganisation"];
             };
         };
         responses: {
@@ -1721,9 +2434,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["OrganisationBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     members_list: {
@@ -1744,9 +2459,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     members_invite: {
@@ -1761,7 +2478,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["InviteMember"];
             };
         };
         responses: {
@@ -1771,9 +2488,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     members_remove: {
@@ -1797,6 +2516,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     members_change_role: {
@@ -1813,7 +2534,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["ChangeRole"];
             };
         };
         responses: {
@@ -1823,9 +2544,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["MemberBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     projects_list: {
@@ -1846,9 +2569,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     projects_create: {
@@ -1863,7 +2588,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["CreateProject"];
             };
         };
         responses: {
@@ -1873,9 +2598,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     projects_get: {
@@ -1898,9 +2625,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     projects_delete: {
@@ -1924,6 +2653,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     projects_rename: {
@@ -1940,7 +2671,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["UpdateProject"];
             };
         };
         responses: {
@@ -1950,9 +2681,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ProjectBody"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     keys_list: {
@@ -1975,9 +2708,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["KeyBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     keys_issue: {
@@ -1994,7 +2729,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["IssueKey"];
             };
         };
         responses: {
@@ -2004,9 +2739,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["IssuedKey"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     keys_revoke: {
@@ -2032,6 +2769,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     models_allowlist: {
@@ -2054,9 +2793,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelAllowlist"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     models_set_allowlist: {
@@ -2073,7 +2814,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": unknown;
+                "application/json": components["schemas"]["ModelAllowlist"];
             };
         };
         responses: {
@@ -2083,9 +2824,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ModelAllowlist"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     byok_list: {
@@ -2109,6 +2852,8 @@ export interface operations {
                     "application/json": components["schemas"]["CredentialMetadata"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     byok_set: {
@@ -2138,6 +2883,8 @@ export interface operations {
                     "application/json": components["schemas"]["CredentialMetadata"];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     byok_delete: {
@@ -2161,6 +2908,8 @@ export interface operations {
                 };
                 content?: never;
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
     members_roles: {
@@ -2178,9 +2927,11 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["RoleBody"][];
                 };
             };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
         };
     };
 }
