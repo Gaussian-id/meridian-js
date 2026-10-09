@@ -14,8 +14,11 @@ export interface AllowRule {
   options?: readonly string[]
 }
 
+/** What the handler needs from a server client: only chat. A `client` option may be this, or a function returning it (called once per request, never at creation). */
+export type ForwardClient = { chat: ChatApi }
+
 export interface ForwardHandlerOptions {
-  client: { chat: ChatApi }
+  client: ForwardClient | (() => ForwardClient)
   authorize: (request: Request) => boolean | Response | Promise<boolean | Response>
   allow?: AllowRule
 }
@@ -58,6 +61,13 @@ const refuse = (
 
 /** Fields the dedicated logic owns: `options` can never copy them raw. */
 const NEVER_RAW = ['model', 'stream', 'stream_options', 'messages', 'max_tokens', 'temperature']
+
+/** The browser's idempotency key, only when it is 1 to 255 printable ASCII characters. */
+function browserKey(request: Request): string | undefined {
+  const key = request.headers.get('idempotency-key')
+
+  return key && key.length <= 255 && /^[ -~]+$/.test(key) ? key : undefined
+}
 
 const isJson = (request: Request) => /^application\/json\s*(;|$)/i.test(request.headers.get('content-type') ?? '')
 
@@ -132,15 +142,24 @@ export function createForwardHandler(options: ForwardHandlerOptions): (request: 
 
     // [3] Only the allowed fields reach the engine
     const params = allowedParams(body, allow)
-    const signal = request.signal
+    const callOptions = { signal: request.signal, idempotencyKey: browserKey(request) }
+
+    // [4] A lazy client is built now, once for this request; a factory that throws is an error response
+    let client: ForwardClient
+
+    try {
+      client = typeof options.client === 'function' ? options.client() : options.client
+    } catch {
+      return errorResponse(configError('The Meridian client could not be created.'))
+    }
 
     if (body.stream === true) {
-      const { data, error } = await options.client.chat.stream(params, { signal })
+      const { data, error } = await client.chat.stream(params, callOptions)
 
       return error ? errorResponse(error) : data.toResponse()
     }
 
-    const { data, error } = await options.client.chat.create(params, { signal })
+    const { data, error } = await client.chat.create(params, callOptions)
 
     return error ? errorResponse(error) : Response.json(data)
   }

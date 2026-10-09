@@ -278,3 +278,105 @@ describeFake('forwarding handler hardening', () => {
     expect(response.headers.get('allow')).toBe('POST')
   })
 })
+
+describeFake('forwarding the idempotency key', () => {
+  const withKey = (key: string | null) =>
+    new Request('http://app.test/api/meridian/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(key === null ? {} : { 'idempotency-key': key }) },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'hi' }] })
+    })
+
+  it('sends the browser key to the engine, the same on every retry of the browser', async () => {
+    const { engine, handler } = setup()
+
+    await handler(withKey('k-123'))
+    await handler(withKey('k-123'))
+    const [a, b] = engine.fake!.requests.slice(-2)
+
+    expect(a!.headers.get('idempotency-key')).toBe('k-123')
+    expect(b!.headers.get('idempotency-key')).toBe('k-123')
+  })
+
+  it('also forwards it for a streamed request', async () => {
+    const { engine, handler } = setup()
+
+    const response = await handler(
+      new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'idempotency-key': 'k-stream' },
+        body: JSON.stringify({ stream: true, messages: [{ role: 'user', content: 'hi' }] })
+      })
+    )
+
+    await response.text()
+    expect(engine.fake!.requests.at(-1)!.headers.get('idempotency-key')).toBe('k-stream')
+  })
+
+  it.each([
+    ['empty', ''],
+    ['too long', 'k'.repeat(300)],
+    ['not printable ASCII', 'k\u00e9y']
+  ])('replaces an invalid key (%s) with a generated one', async (_name, key) => {
+    const { engine, handler } = setup()
+
+    await handler(withKey(key))
+    const sent = engine.fake!.requests.at(-1)!.headers.get('idempotency-key')
+
+    expect(sent).toBeTruthy()
+    expect(sent).not.toBe(key)
+    expect(sent!.length).toBeLessThanOrEqual(255)
+  })
+
+  it('generates a key when the browser sent none', async () => {
+    const { engine, handler } = setup()
+
+    await handler(withKey(null))
+
+    expect(engine.fake!.requests.at(-1)!.headers.get('idempotency-key')).toBeTruthy()
+  })
+})
+
+describeFake('lazy client', () => {
+  it('calls the factory per request and not at creation', async () => {
+    const engine = testEngine()
+    let calls = 0
+
+    const handler = createForwardHandler({
+      client: () => {
+        calls++
+
+        return createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
+      },
+      authorize: allowAll
+    })
+
+    expect(calls).toBe(0)
+    await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
+    await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
+    expect(calls).toBe(2)
+  })
+
+  it('answers with the refused client error, not a throw, when the key is missing', async () => {
+    const handler = createForwardHandler({ client: () => createClient('http://engine.test', ''), authorize: allowAll })
+
+    const response = await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
+    const json = (await response.json()) as { error: { code: string } }
+
+    expect(response.status).toBe(502)
+    expect(json.error.code).toBe('invalid_request')
+  })
+
+  it('answers an error response when the factory itself throws', async () => {
+    const handler = createForwardHandler({
+      client: () => {
+        throw new Error('env missing')
+      },
+      authorize: allowAll
+    })
+
+    const response = await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
+
+    expect(response.status).toBe(502)
+  })
+})
