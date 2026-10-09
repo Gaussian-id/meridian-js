@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { createClient } from 'meridian'
+import type { ChatParams } from 'meridian'
 
 import { describeFake, testEngine } from './support/engine'
 import { chunk, envelope, finish, frame, usageChunk } from './support/fake-engine'
@@ -14,6 +15,28 @@ function client() {
 }
 
 describe('chat.stream', () => {
+  it('always sends stream: true and include_usage: true, whatever the caller passes', async () => {
+    const { engine, meridian } = client()
+
+    const { data: stream } = await meridian.chat.stream({
+      messages,
+      stream: false,
+      stream_options: { include_usage: false }
+    } as ChatParams)
+
+    await stream?.text()
+
+    if (engine.fake) {
+      const sent = (await engine.fake.requests.at(-1)!.json()) as {
+        stream: unknown
+        stream_options: { include_usage: unknown }
+      }
+
+      expect(sent.stream).toBe(true)
+      expect(sent.stream_options.include_usage).toBe(true)
+    }
+  })
+
   it('yields text chunks, ends cleanly and reports token usage', async () => {
     const { engine, meridian } = client()
     const { data: stream, error } = await meridian.chat.stream({ model: engine.model, messages })

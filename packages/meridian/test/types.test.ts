@@ -32,8 +32,16 @@ describe('public types come from the engine spec', () => {
       tools: [{ type: 'function', function: { name: 'f', parameters: { type: 'object' } } }]
     }
 
-    expectTypeOf(params.tools).not.toBeAny()
-    expectTypeOf(params.tools).not.toBeUnknown()
+    expectTypeOf(params.tools).toExtend<unknown[] | null | undefined>()
+
+    expectTypeOf<NonNullable<ChatParams['tools']>[number]['function']['name']>().toEqualTypeOf<string>()
+  })
+
+  it('keeps the forwarded message fields in the generated types', () => {
+    expectTypeOf<ChatMessage['tool_calls']>().not.toBeUnknown()
+    expectTypeOf<ChatMessage['tool_call_id']>().not.toBeUnknown()
+    expectTypeOf<ChatMessage['name']>().not.toBeUnknown()
+    expectTypeOf<ChatParams['user']>().not.toBeUnknown()
   })
 
   it('accepts multi-turn tool messages and user', () => {

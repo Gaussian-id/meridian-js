@@ -84,6 +84,8 @@ Forwarding notes:
 - Cookies are sent for same-origin routes by default. A cross-origin route needs a custom `fetch`.
 - The `idempotency-key` header triggers a CORS preflight on cross-origin routes.
 
+> `ChatParams` accepts extra keys because the engine forwards unknown request fields. A typo such as `temprature` is therefore not a compile error.
+
 ## Direct API
 
 No SDK needed. Use the engine's chat endpoint:

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
+import type { ChatParams } from 'meridian'
 
 import { describeFake, testEngine } from './support/engine'
 import { engineError } from './support/fake-engine'
@@ -56,6 +57,19 @@ describe('chat.create', () => {
       const sent = (await engine.fake.requests.at(-1)!.json()) as Record<string, unknown>
 
       expect(sent).not.toHaveProperty('model')
+    }
+  })
+
+  it('always sends stream: false, even if the caller passes stream: true', async () => {
+    const engine = testEngine()
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
+
+    await meridian.chat.create({ messages, stream: true } as ChatParams)
+
+    if (engine.fake) {
+      const sent = (await engine.fake.requests.at(-1)!.json()) as Record<string, unknown>
+
+      expect(sent.stream).toBe(false)
     }
   })
 })
