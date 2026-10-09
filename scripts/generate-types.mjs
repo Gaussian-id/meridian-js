@@ -14,7 +14,7 @@ const check = process.argv.includes("--check");
 // [1] Generate each document's types in memory.
 const generated = await Promise.all(
   targets.map(async ({ spec, out }) => {
-    const ast = await openapiTS(pathToFileURL(spec));
+    const ast = await openapiTS(pathToFileURL(spec), { emptyObjectsUnknown: true });
 
     return { out, text: header + astToString(ast) };
   }),

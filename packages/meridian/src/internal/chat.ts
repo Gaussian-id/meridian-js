@@ -1,7 +1,7 @@
 import type { ChatApi, ChatCompletion, ChatParams, RequestOptions } from '../types'
 
 import { ok } from './errors'
-import { createChatStream } from './stream'
+import { createChatStream, tokenCounts } from './stream'
 import type { Transport } from './transport'
 
 /** A fresh key per logical call, so a retry before the first chunk can never run the request twice (chat.rs R19). */
@@ -20,14 +20,18 @@ export function idempotency(options: RequestOptions): Record<string, string> {
 
 export function createChatApi(transport: Transport, path: string): ChatApi {
   return {
-    create: (params: ChatParams, options: RequestOptions = {}) =>
-      transport.json<ChatCompletion>({
+    create: async (params: ChatParams, options: RequestOptions = {}) => {
+      const result = await transport.json<ChatCompletion>({
         method: 'POST',
         path,
         body: { ...params, stream: false },
         signal: options.signal,
         headers: idempotency(options)
-      }),
+      })
+
+      // Same three token counts as stream.usage, nothing else
+      return result.error ? result : ok({ ...result.data, usage: tokenCounts(result.data.usage ?? {}) })
+    },
     stream: async (params: ChatParams, options: RequestOptions = {}) => {
       // [1] Ask for the usage chunk so stream.usage is filled (encode.rs: usage only on include_usage)
       const opened = await transport.open({

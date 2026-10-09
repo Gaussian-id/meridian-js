@@ -217,6 +217,18 @@ describeFake('chat.stream edge cases', () => {
     expect(stream!.usage).toEqual({ prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 })
   })
 
+  it('leaves out token counts the engine did not report', async () => {
+    const { engine, meridian } = client()
+    const partial = { ...usageChunk(1, 2), usage: { prompt_tokens: 1, prompt_tokens_details: { cached_tokens: 1 } } }
+
+    engine.fake!.next({ chunks: [frame(chunk('x')), frame(partial), frame('[DONE]')] })
+    const { data: stream } = await meridian.chat.stream({ messages })
+
+    await stream!.text()
+
+    expect(stream!.usage).toStrictEqual({ prompt_tokens: 1 })
+  })
+
   it('reports an error frame mid-stream on stream.error, without throwing', async () => {
     const { engine, meridian } = client()
 

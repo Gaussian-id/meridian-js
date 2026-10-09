@@ -167,7 +167,7 @@ export interface components {
             /** @description Tool choice, in the OpenAI shape. */
             tool_choice?: unknown;
             /** @description Tools, in the OpenAI shape. A non-empty list needs a model with tool support. */
-            tools?: Record<string, never>[] | null;
+            tools?: Record<string, unknown>[] | null;
             /**
              * Format: double
              * @description Nucleus sampling, forwarded.
@@ -186,7 +186,7 @@ export interface components {
              * @description The provider delta, forwarded: `content`, `reasoning`, `tool_calls` pieces, or `{}` at
              *     the finish.
              */
-            delta: Record<string, never>;
+            delta: Record<string, unknown>;
             finish_reason: components["schemas"]["FinishReasonName"] | null;
             /** Format: int32 */
             index: number;

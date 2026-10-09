@@ -163,3 +163,25 @@ describe('createClient refusals', () => {
     expect(error?.message).toContain('fetch')
   })
 })
+
+describeFake('chat.create usage', () => {
+  it('returns only the present token counts, without details or extra fields', async () => {
+    const engine = testEngine()
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
+
+    engine.fake!.next({
+      json: {
+        id: 'chatcmpl-1',
+        object: 'chat.completion',
+        created: 1,
+        model: 'm',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'hi' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 4, prompt_tokens_details: { cached_tokens: 1 }, cost: 1 }
+      }
+    })
+
+    const { data } = await meridian.chat.create({ messages })
+
+    expect(data?.usage).toStrictEqual({ prompt_tokens: 4 })
+  })
+})

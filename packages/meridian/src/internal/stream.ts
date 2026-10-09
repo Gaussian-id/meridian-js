@@ -63,13 +63,15 @@ function parseChunk(data: string): ChatChunkRaw | null {
   }
 }
 
-/** Only the token counts leave the SDK; any other field in the engine's usage is dropped. */
-function tokenCounts(usage: Usage): Usage {
-  return {
-    prompt_tokens: usage.prompt_tokens,
-    completion_tokens: usage.completion_tokens,
-    total_tokens: usage.total_tokens
+/** Only the three token counts leave the SDK, and only those present; any other field is dropped. */
+export function tokenCounts(usage: Usage): Usage {
+  const counts: Usage = {}
+
+  for (const key of ['prompt_tokens', 'completion_tokens', 'total_tokens'] as const) {
+    if (typeof usage[key] === 'number') counts[key] = usage[key]
   }
+
+  return counts
 }
 
 class ChatStreamImpl implements ChatStream {
