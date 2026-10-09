@@ -15,12 +15,13 @@ export function isBrowserLike(): boolean {
   return typeof g.window === 'object' && g.window !== null && typeof g.document === 'object' && g.document !== null
 }
 
-export function refusal(fn: string, alternative: string): MeridianError | null {
-  return isBrowserLike()
-    ? configError(
-        `${fn}() holds a secret key and runs only on a server. In a browser or mobile app use ${alternative}().`
-      )
-    : null
+/** `alternative` names the client to use instead; null when there is none (provisioning belongs on a server). */
+export function refusal(fn: string, alternative: string | null): MeridianError | null {
+  const advice = alternative
+    ? `In a browser or mobile app use ${alternative}().`
+    : 'Provisioning must run on a server, never in a browser or mobile app.'
+
+  return isBrowserLike() ? configError(`${fn}() holds a secret key and runs only on a server. ${advice}`) : null
 }
 
 export function urlRefusal(url: string, name: string): MeridianError | null {

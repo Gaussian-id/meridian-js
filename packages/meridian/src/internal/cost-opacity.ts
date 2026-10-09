@@ -1,4 +1,6 @@
 /** A key that names a price or a cost (D-27): the SDK never exposes one. */
+// Substring matching may also drop a record key that is user data (say a field named "price_list"): that fails safe,
+// since a hidden field is better than a leaked price (D-27).
 const PRICED = /cost|price/i
 
 type IsPriced<K> = K extends string

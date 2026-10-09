@@ -1,6 +1,6 @@
 import type { paths } from './generated/admin'
 import { withoutPrices, type WithoutPrices } from './internal/cost-opacity'
-import { configError, ok, type Result } from './internal/errors'
+import { configError, fail, ok, type MeridianError, type Result } from './internal/errors'
 import type { OkBody, RequestBody } from './internal/openapi'
 import { refusedTransport } from './internal/refused'
 import { refusal, urlRefusal } from './internal/runtime'
@@ -84,27 +84,48 @@ export interface AdminClient {
   }
 }
 
-/** A path with every interpolated value encoded as one segment. */
-function path(strings: TemplateStringsArray, ...values: (string | number)[]): string {
+/** A route: the path to call, or the reason a parameter cannot be part of one. */
+type Route = string | MeridianError
+
+/** True for a parameter that would climb to, or collapse into, another resource's route. */
+function isUnsafeSegment(value: string | number): boolean {
+  const text = String(value)
+  let decoded = text
+
+  try {
+    decoded = decodeURIComponent(text)
+  } catch {
+    // Not valid percent-encoding: the raw text is what gets encoded below
+  }
+
+  return [text, decoded].some(candidate => candidate === '' || candidate === '.' || candidate === '..')
+}
+
+/** A path with every interpolated value encoded as one segment; an empty or dot segment is refused, never sent. */
+function path(strings: TemplateStringsArray, ...values: (string | number)[]): Route {
+  if (values.some(isUnsafeSegment)) return configError('A resource id must not be empty, "." or "..".')
+
   return strings.reduce((out, part, i) => out + part + (i < values.length ? encodeURIComponent(values[i]!) : ''), '')
 }
 
 function createAdminApi(transport: Transport): AdminClient {
   // [1] One call: the reply loses any price or cost field before the caller sees it
-  const send = async <T>(call: Call, o: RequestOptions = {}): Promise<Result<T>> => {
-    const result = await transport.json<T>({ ...call, signal: o.signal })
+  const send = async <T>(call: Omit<Call, 'path'> & { path: Route }, o: RequestOptions = {}): Promise<Result<T>> => {
+    if (typeof call.path !== 'string') return fail(call.path)
+
+    const result = await transport.json<T>({ ...call, path: call.path, signal: o.signal })
 
     return result.error ? result : ok(withoutPrices(result.data) as T)
   }
 
   // [2] Reads, replaces and deletes are safe to repeat; a create is not, unless the caller says otherwise
-  const read = <T>(url: string, o?: RequestOptions, query?: Call['query']) =>
+  const read = <T>(url: Route, o?: RequestOptions, query?: Call['query']) =>
     send<T>({ method: 'GET', path: url, query }, o)
 
-  const write = <T>(method: Call['method'], url: string, body: unknown, o?: RequestOptions, retry = false) =>
+  const write = <T>(method: Call['method'], url: Route, body: unknown, o?: RequestOptions, retry = false) =>
     send<T>({ method, path: url, body, retry }, o)
 
-  const remove = (url: string, o?: RequestOptions) => send<null>({ method: 'DELETE', path: url }, o)
+  const remove = (url: Route, o?: RequestOptions) => send<null>({ method: 'DELETE', path: url }, o)
 
   return {
     orgs: {
@@ -152,7 +173,7 @@ function createAdminApi(transport: Transport): AdminClient {
 export function createAdminClient(adminUrl: string, integratorKey: string, options: ClientOptions = {}): AdminClient {
   // [1] Refuse where the key would leak, or when the client cannot work at all
   const refused =
-    refusal('createAdminClient', 'createBrowserClient') ??
+    refusal('createAdminClient', null) ??
     urlRefusal(adminUrl, 'The Meridian admin URL') ??
     (integratorKey ? null : configError('A Meridian integrator key is required.'))
 

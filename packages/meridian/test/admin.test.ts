@@ -89,6 +89,7 @@ describe('createAdminClient refusals', () => {
     const { error } = await createAdminClient(engine.adminUrl, engine.integratorKey).orgs.list()
 
     expect(error?.message).toContain('server')
+    expect(error?.message).not.toContain('createBrowserClient')
   })
 
   it('refuses an empty key and a relative URL as error values', async () => {
@@ -236,6 +237,36 @@ describe('cost opacity (D-27)', () => {
     // The walker finds the key in the generated type, so an empty result for the client is meaningful
     expectTypeOf<Priced<components['schemas']['LogRow']>>().toEqualTypeOf<'cost_charged'>()
     expectTypeOf<[Every]>().toEqualTypeOf<[never]>()
+  })
+})
+
+describeFake('admin path parameters', () => {
+  it.each(['', '.', '..', '%2e%2E', '%2E.'])('rejects %j as a resource id without sending anything', async bad => {
+    const { engine, ops } = admin()
+
+    const results = [
+      await ops.keys.revoke('o1', 'p1', bad),
+      await ops.providerCredentials.delete('o1', bad),
+      await ops.projects.get('o1', bad),
+      await ops.orgs.getByReference(bad)
+    ]
+
+    for (const { data, error } of results) {
+      expect(data).toBeNull()
+      expect(error).toMatchObject({ code: 'invalid_request', type: 'client_error', retryable: false })
+    }
+
+    expect(engine.fake!.requests).toHaveLength(0)
+  })
+
+  it('encodes a non-ASCII external reference', async () => {
+    const { engine, ops } = admin()
+
+    await ops.orgs.getByReference('kopi-ü-日本-😀')
+
+    expect(new URL(engine.fake!.requests[0]!.url).pathname).toBe(
+      '/v1/orgs/by-reference/kopi-%C3%BC-%E6%97%A5%E6%9C%AC-%F0%9F%98%80'
+    )
   })
 })
 
