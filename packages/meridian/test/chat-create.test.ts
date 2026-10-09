@@ -167,8 +167,9 @@ describe('createClient refusals', () => {
   })
 
   it('returns a configuration error, not a throw, when no fetch exists', async () => {
-    vi.stubGlobal('fetch', undefined)
     const engine = testEngine()
+
+    vi.stubGlobal('fetch', undefined)
 
     const meridian = createClient(engine.publicUrl, engine.projectKey)
     const { error } = await meridian.models.list()
