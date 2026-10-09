@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { createClient } from 'meridian'
 
 import { useMeridian } from 'meridian-nuxt/composables'
-import { defineMeridianHandler } from 'meridian-nuxt/server'
+import { defineMeridianHandler, useMeridianServerClient } from 'meridian-nuxt/server'
 
 import { testEngine } from '../../meridian/test/support/engine'
 
@@ -47,5 +47,12 @@ describe('meridian-nuxt', () => {
     await useMeridian({ fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
 
     expect(seen).toEqual(['/api/meridian/chat'])
+  })
+
+  it('returns an error value, not a throw, from the server client when runtime config is empty', async () => {
+    const result = await useMeridianServerClient().chat.create({ messages: [{ role: 'user', content: 'x' }] })
+
+    expect(result.data).toBeNull()
+    expect(result.error?.message).toContain('NUXT_MERIDIAN_KEY')
   })
 })

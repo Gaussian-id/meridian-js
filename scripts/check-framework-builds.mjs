@@ -2,12 +2,25 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+const NL = String.fromCharCode(10);
+
 const run = (cwd) =>
   spawnSync("pnpm", ["run", "build"], {
     cwd,
     stdio: "inherit",
     shell: process.platform === "win32",
   }).status;
+
+/** Builds quietly, so a failure's output can be inspected. */
+const runCaptured = (cwd) => {
+  const result = spawnSync("pnpm", ["run", "build"], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  });
+
+  return { status: result.status, output: result.stdout + NL + result.stderr };
+};
 
 const filesUnder = (dir) =>
   readdirSync(dir).flatMap((name) => {
@@ -58,13 +71,20 @@ if (!broken.includes(nuxtGood)) {
 // [4] The negative Nuxt fixture must be caught: its build fails, or its client bundle holds the marker.
 const nuxtLeak = "packages/meridian-nuxt/test/fixtures/leak";
 
-if (run(nuxtLeak) === 0) {
+const leakBuild = runCaptured(nuxtLeak);
+
+if (leakBuild.status === 0) {
   const found = nuxtClientLeaks(nuxtLeak);
 
   if (!found?.length) problems.push(`${nuxtLeak}: leak built and was not detected`);
   else console.log(`Nuxt leak fixture detected: marker found in ${found.length} client file(s).`);
+} else if (
+  /server-only|meridian-nuxt\/server|#imports|useMeridianServerClient/.test(leakBuild.output)
+) {
+  console.log("Nuxt leak fixture detected: build failed on the server import.");
 } else {
-  console.log("Nuxt leak fixture detected: build failed.");
+  console.error(leakBuild.output.split(NL).slice(-40).join(NL));
+  problems.push(`${nuxtLeak}: build failed for an unrelated reason (output tail above)`);
 }
 
 if (broken.length || leaked.length || problems.length) {
