@@ -11,9 +11,18 @@ export interface TransportConfig {
 export interface Call {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   path: string
+
+  /** Query parameters, encoded once here; `undefined` values are left out. */
+  query?: Record<string, string | number | undefined>
   body?: unknown
   signal?: AbortSignal
   headers?: Record<string, string>
+
+  /**
+   * False for a call that is not safe to repeat once it may have reached the server: it is then retried only when the
+   * server rejected it before running it (`rate_limited`). Default true.
+   */
+  retry?: boolean
 }
 
 export interface Opened {
@@ -64,6 +73,18 @@ export function createTransport(config: TransportConfig): Transport {
   const base = config.baseUrl.replace(/\/+$/, '')
   const maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES)
 
+  function urlFor(call: Call): string {
+    const query = new URLSearchParams()
+
+    for (const [name, value] of Object.entries(call.query ?? {})) {
+      if (value !== undefined) query.set(name, String(value))
+    }
+
+    const text = query.toString()
+
+    return `${base}${call.path}${text ? `?${text}` : ''}`
+  }
+
   function headersFor(call: Call): Headers {
     const headers = new Headers({ accept: 'application/json, text/event-stream', ...call.headers })
 
@@ -111,7 +132,7 @@ export function createTransport(config: TransportConfig): Transport {
 
     try {
       // [2] Send the request
-      const response = await send(`${base}${call.path}`, {
+      const response = await send(urlFor(call), {
         method: call.method,
         headers: headersFor(call),
         body: call.body === undefined ? undefined : JSON.stringify(call.body),
@@ -144,6 +165,9 @@ export function createTransport(config: TransportConfig): Transport {
 
       // [1] A response, a final error, or a spent budget ends the loop
       if (outcome.kind === 'response' || !outcome.error.retryable || tried >= maxRetries) return outcome
+
+      // A call that is unsafe to repeat is retried only when the server refused it before running it
+      if (call.retry === false && outcome.error.code !== 'rate_limited') return outcome
 
       // [2] A server asking for a long wait gets its answer now, not after the wait
       if (outcome.retryAfterMs !== null && outcome.retryAfterMs > MAX_RETRY_AFTER_MS) return outcome
