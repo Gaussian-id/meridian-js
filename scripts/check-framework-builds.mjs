@@ -87,6 +87,18 @@ if (leakBuild.status === 0) {
   problems.push(`${nuxtLeak}: build failed for an unrelated reason (output tail above)`);
 }
 
+// [5] The Expo package must type-check against the real expo/fetch types.
+const expoStatus = spawnSync(
+  "pnpm",
+  ["--filter", "meridian-expo", "exec", "tsc", "--noEmit", "-p", "tsconfig.json"],
+  {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  },
+).status;
+
+if (expoStatus !== 0) problems.push("meridian-expo: type-check failed");
+
 if (broken.length || leaked.length || problems.length) {
   console.error(
     `Builds that failed: ${broken.join(", ") || "none"}. Leaks that built: ${leaked.join(", ") || "none"}. Nuxt: ${problems.join("; ") || "ok"}.`,
