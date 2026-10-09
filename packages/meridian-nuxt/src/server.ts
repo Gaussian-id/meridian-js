@@ -5,9 +5,15 @@ import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from
 
 import { useRuntimeConfig } from '#imports'
 
+const SERVER_CLIENT_MARKER =
+  'meridian-nuxt: set runtimeConfig.meridian.url and .key (NUXT_MERIDIAN_URL, NUXT_MERIDIAN_KEY)'
+
 /** The server client from runtimeConfig.meridian, for Nitro server routes. */
 export function useMeridianServerClient(options: ClientOptions = {}): MeridianClient {
   const { url, key } = (useRuntimeConfig() as { meridian: { url: string; key: string } }).meridian
+
+  // The message doubles as the marker scripts/check-framework-builds.mjs looks for in client bundles
+  if (!url || !key) throw new Error(SERVER_CLIENT_MARKER)
 
   return createClient(url, key, options)
 }

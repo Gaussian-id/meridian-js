@@ -29,7 +29,7 @@
   },
   "peerDependencies": {
     "nuxt": ">=3.13",
-    "h3": ">=1.12"
+    "h3": ">=1.12 <2"
   },
   "devDependencies": {
     "nuxt": "^4",

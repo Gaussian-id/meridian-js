@@ -2,31 +2,13 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const nuxtApp = "packages/meridian-nuxt/test/fixtures/app";
-const nuxtSentinel = "MERIDIAN_NUXT_LEAK_SENTINEL";
-
 const run = (cwd) =>
   spawnSync("pnpm", ["run", "build"], {
     cwd,
     stdio: "inherit",
-    env:
-      cwd === nuxtApp
-        ? {
-            ...process.env,
-            NUXT_MERIDIAN_URL: "http://engine.invalid",
-            NUXT_MERIDIAN_KEY: nuxtSentinel,
-          }
-        : process.env,
     shell: process.platform === "win32",
   }).status;
 
-// [1] The supported shapes must build.
-const builds = ["packages/meridian-next/test/fixtures/app", nuxtApp];
-
-// [2] A client component importing the server client must fail to build.
-const mustFail = ["packages/meridian-next/test/fixtures/leak"];
-
-// [3] The built Nuxt client assets must hold neither the server key nor the server client.
 const filesUnder = (dir) =>
   readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
@@ -34,23 +16,60 @@ const filesUnder = (dir) =>
     return statSync(path).isDirectory() ? filesUnder(path) : [path];
   });
 
-const nuxtClientDirs = [".nuxt/dist/client", ".output/public"].map((dir) => join(nuxtApp, dir));
-const nuxtClientFiles = nuxtClientDirs.filter(existsSync).flatMap(filesUnder);
+// A string literal from packages/meridian-nuxt/src/server.ts that survives minification.
+const NUXT_SERVER_MARKER = "meridian-nuxt: set runtimeConfig.meridian.url";
 
-const nuxtLeaks = nuxtClientFiles.length
-  ? nuxtClientFiles.filter((file) => {
-      const text = readFileSync(file, "utf8");
+/** Client files of a built Nuxt fixture that hold the server client; null when there was nothing to scan. */
+const nuxtClientLeaks = (cwd) => {
+  const files = [".nuxt/dist/client", ".output/public"]
+    .map((dir) => join(cwd, dir))
+    .filter(existsSync)
+    .flatMap(filesUnder);
 
-      return text.includes(nuxtSentinel) || text.includes("useMeridianServerClient");
-    })
-  : ["(no client files found to scan)"];
+  return files.length
+    ? files.filter((file) => readFileSync(file, "utf8").includes(NUXT_SERVER_MARKER))
+    : null;
+};
+
+// [1] The supported shapes must build.
+const builds = [
+  "packages/meridian-next/test/fixtures/app",
+  "packages/meridian-nuxt/test/fixtures/app",
+];
+
+// [2] A client component importing the server client must fail to build.
+const mustFail = ["packages/meridian-next/test/fixtures/leak"];
 
 const broken = builds.filter((cwd) => run(cwd) !== 0);
 const leaked = mustFail.filter((cwd) => run(cwd) === 0);
+const problems = [];
 
-if (broken.length || leaked.length || nuxtLeaks.length) {
+// [3] The Nuxt client bundle must not hold the server client (scanned only after its build succeeded).
+const nuxtGood = "packages/meridian-nuxt/test/fixtures/app";
+
+if (!broken.includes(nuxtGood)) {
+  const found = nuxtClientLeaks(nuxtGood);
+
+  if (found === null) problems.push(`${nuxtGood}: no client files to scan`);
+  else if (found.length)
+    problems.push(`${nuxtGood}: server client in client bundle (${found.join(", ")})`);
+}
+
+// [4] The negative Nuxt fixture must be caught: its build fails, or its client bundle holds the marker.
+const nuxtLeak = "packages/meridian-nuxt/test/fixtures/leak";
+
+if (run(nuxtLeak) === 0) {
+  const found = nuxtClientLeaks(nuxtLeak);
+
+  if (!found?.length) problems.push(`${nuxtLeak}: leak built and was not detected`);
+  else console.log(`Nuxt leak fixture detected: marker found in ${found.length} client file(s).`);
+} else {
+  console.log("Nuxt leak fixture detected: build failed.");
+}
+
+if (broken.length || leaked.length || problems.length) {
   console.error(
-    `Builds that failed: ${broken.join(", ") || "none"}. Leaks that built: ${leaked.join(", ") || "none"}. Nuxt client files leaking the server client or key: ${nuxtLeaks.join(", ") || "none"}.`,
+    `Builds that failed: ${broken.join(", ") || "none"}. Leaks that built: ${leaked.join(", ") || "none"}. Nuxt: ${problems.join("; ") || "ok"}.`,
   );
   process.exit(1);
 }
