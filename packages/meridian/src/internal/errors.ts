@@ -30,6 +30,23 @@ export const ENGINE_ERROR_CODES = [
   'conflict'
 ] as const
 
+/**
+ * Codes that mean the app's own key or account was refused. A forwarding route never shows them to a browser
+ * (owner decision, 10 Oct). Shared by the core handler and the framework packages built on it.
+ */
+export const HIDDEN_FORWARD_CODES = [
+  'invalid_api_key',
+  'key_revoked',
+  'key_expired',
+  'project_unavailable',
+  'organisation_unavailable',
+  'project_host_mismatch',
+  'byok_required',
+  'insufficient_credit',
+  'hard_limit_reached',
+  'entitlement_missing'
+] as const satisfies readonly (typeof ENGINE_ERROR_CODES)[number][]
+
 export type EngineErrorCode = (typeof ENGINE_ERROR_CODES)[number]
 export type MeridianErrorCode = EngineErrorCode | 'network_error' | 'aborted'
 export type MeridianErrorType =

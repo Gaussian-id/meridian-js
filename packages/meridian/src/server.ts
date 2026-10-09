@@ -1,4 +1,4 @@
-import { configError, type MeridianError } from './internal/errors'
+import { configError, HIDDEN_FORWARD_CODES, parseEnvelope, type MeridianError } from './internal/errors'
 import type { ChatApi, ChatParams } from './types'
 
 export const DEFAULT_MAX_TOKENS_CAP = 4096
@@ -39,6 +39,85 @@ export function errorResponse(error: MeridianError): Response {
   if (error.requestId) headers.set('x-request-id', error.requestId)
 
   return new Response(JSON.stringify(body), { status: error.status > 0 ? error.status : 502, headers })
+}
+
+const HIDDEN = new Set<string>(HIDDEN_FORWARD_CODES)
+
+/** What the browser gets instead of an app key or billing refusal: nothing about the app's key or credit. */
+function genericEnvelope(requestId?: string) {
+  return {
+    error: {
+      message: 'The service is temporarily unavailable.',
+      type: 'api_error',
+      code: 'service_unavailable',
+      ...(requestId ? { request_id: requestId } : {})
+    }
+  }
+}
+
+/** The error response for the browser: the app's own key and billing refusals become a generic 503. */
+function browserError(error: MeridianError): Response {
+  if (!HIDDEN.has(error.code)) return errorResponse(error)
+
+  const headers = new Headers({ 'content-type': 'application/json' })
+
+  if (error.requestId) headers.set('x-request-id', error.requestId)
+
+  return new Response(JSON.stringify(genericEnvelope(error.requestId)), { status: 503, headers })
+}
+
+/** The blank line that ends an SSE event, in either line-ending style. */
+const EVENT_END = /\r?\n\r?\n/
+
+/** One SSE event (without its blank line), rewritten when it is a hidden error frame; otherwise null. */
+function hiddenFrame(event: string): string | null {
+  const data = event
+    .split(/\r?\n/)
+    .filter(line => line.startsWith('data:'))
+    .map(line => line.slice(line.startsWith('data: ') ? 6 : 5))
+    .join('\n')
+
+  const envelope = parseEnvelope(data)
+
+  return envelope && HIDDEN.has(envelope.error.code)
+    ? `data: ${JSON.stringify(genericEnvelope(envelope.error.request_id))}`
+    : null
+}
+
+/** The stream response with a hidden mid-stream error frame rewritten; every other byte passes through. */
+function hideStreamErrors(response: Response): Response {
+  if (!response.body) return response
+
+  const decoder = new TextDecoder()
+  const encoder = new TextEncoder()
+  let buffer = ''
+
+  const body = response.body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(bytes, controller) {
+        // [1] Decode (a split character waits for its next bytes) and cut complete events
+        buffer += decoder.decode(bytes, { stream: true })
+
+        for (let match = EVENT_END.exec(buffer); match; match = EVENT_END.exec(buffer)) {
+          const end = match.index + match[0].length
+
+          // [2] A hidden error frame is replaced; any other event is re-emitted as it came
+          const rewritten = hiddenFrame(buffer.slice(0, match.index))
+
+          controller.enqueue(encoder.encode(rewritten === null ? buffer.slice(0, end) : `${rewritten}\n\n`))
+          buffer = buffer.slice(end)
+        }
+      },
+      flush(controller) {
+        // [3] An event the engine left without its blank line is checked the same way
+        const rest = buffer + decoder.decode()
+
+        if (rest) controller.enqueue(encoder.encode(hiddenFrame(rest) ?? rest))
+      }
+    })
+  )
+
+  return new Response(body, { status: response.status, headers: response.headers })
 }
 
 const refuse = (
@@ -156,11 +235,11 @@ export function createForwardHandler(options: ForwardHandlerOptions): (request: 
     if (body.stream === true) {
       const { data, error } = await client.chat.stream(params, callOptions)
 
-      return error ? errorResponse(error) : data.toResponse()
+      return error ? browserError(error) : hideStreamErrors(data.toResponse())
     }
 
     const { data, error } = await client.chat.create(params, callOptions)
 
-    return error ? errorResponse(error) : Response.json(data)
+    return error ? browserError(error) : Response.json(data)
   }
 }

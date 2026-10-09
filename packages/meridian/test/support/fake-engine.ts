@@ -26,6 +26,16 @@ export const FAKE_INTEGRATOR_KEY = `gmi_${'1'.repeat(64)}`
 
 const STATUS: Record<string, number> = {
   invalid_api_key: 401,
+  key_revoked: 401,
+  key_expired: 401,
+  project_unavailable: 403,
+  organisation_unavailable: 403,
+  project_host_mismatch: 403,
+  byok_required: 403,
+  entitlement_missing: 403,
+  insufficient_credit: 402,
+  hard_limit_reached: 429,
+  model_not_allowed: 403,
   invalid_request: 400,
   upstream_unavailable: 502,
   rate_limited: 429,

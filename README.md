@@ -79,6 +79,7 @@ Forwarding notes:
 - The handler accepts `POST` with `application/json` only (415 otherwise).
 - By default the browser may set `messages`, `temperature` and `max_tokens`. `max_tokens` is capped at 4096. `model` and every other field are dropped unless `allow` permits them.
 - `messages` are forwarded as sent. A browser can send a `system` message. If your app needs a fixed system prompt, add it server-side.
+- When the engine refuses the app's own key or account (for example `invalid_api_key`, `key_revoked`, `insufficient_credit`, `hard_limit_reached`), the browser gets a generic 503 `service_unavailable` with the request id, in a stream frame too. Your server-side client still sees the real error.
 - The handler sets no body-size limit. Apply one in your app server.
 - The browser client's default route is relative, so it needs a browser. Use an absolute `route` anywhere else.
 - Cookies are sent for same-origin routes by default. A cross-origin route needs a custom `fetch`.

@@ -72,6 +72,31 @@ describe('meridian-next', () => {
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe('invalid_request')
   })
 
+  it('hides a revoked app key from the browser behind the route', async () => {
+    const engine = testEngine()
+    const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
+    const { POST } = createRouteHandler({ client, authorize: () => true })
+
+    engine.fake?.next({
+      status: 401,
+      json: { error: { message: 'revoked', type: 'authentication_error', code: 'key_revoked', request_id: 'req_n' } }
+    })
+
+    const response = await POST(
+      new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: json,
+        body: JSON.stringify({ messages })
+      })
+    )
+
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(text).not.toContain('key_revoked')
+    expect(text).toContain('service_unavailable')
+  })
+
   it('refuses a POST without a JSON content-type', async () => {
     const { POST } = createRouteHandler({ authorize: () => true })
 

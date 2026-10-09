@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { createClient } from 'meridian'
 import { createForwardHandler } from 'meridian/server'
 
+import { HIDDEN_FORWARD_CODES } from '../src/internal/errors'
+
 import { describeFake, testEngine } from './support/engine'
+import { chunk, engineError, envelope, frame } from './support/fake-engine'
 
 const allowAll = () => true
 
@@ -378,5 +381,128 @@ describeFake('lazy client', () => {
     const response = await handler(post({ messages: [{ role: 'user', content: 'hi' }] }))
 
     expect(response.status).toBe(502)
+  })
+})
+
+describeFake("forwarding hides the app's own key and billing refusals", () => {
+  const ask = { messages: [{ role: 'user', content: 'hi' }] }
+
+  it.each(HIDDEN_FORWARD_CODES)('answers a generic 503 for %s and keeps the request id', async code => {
+    const { engine, handler } = setup()
+
+    engine.fake!.next({
+      status: 402,
+      headers: { 'x-request-id': 'req_hidden_1', 'retry-after': '7' },
+      json: envelope(code, 'req_hidden_1')
+    })
+
+    const response = await handler(post(ask))
+    const text = await response.text()
+    const json = JSON.parse(text) as { error: Record<string, string> }
+
+    expect(response.status).toBe(503)
+    expect(response.headers.get('retry-after')).toBeNull()
+    expect(json.error).toEqual({
+      message: 'The service is temporarily unavailable.',
+      type: 'api_error',
+      code: 'service_unavailable',
+      request_id: 'req_hidden_1'
+    })
+    expect(text).not.toContain(code)
+  })
+
+  it('lists exactly the ten codes of the spec', () => {
+    expect([...HIDDEN_FORWARD_CODES].sort()).toEqual(
+      [
+        'byok_required',
+        'entitlement_missing',
+        'hard_limit_reached',
+        'insufficient_credit',
+        'invalid_api_key',
+        'key_expired',
+        'key_revoked',
+        'organisation_unavailable',
+        'project_host_mismatch',
+        'project_unavailable'
+      ].sort()
+    )
+  })
+
+  it('hides the code on a refusal that arrives before a stream starts', async () => {
+    const { engine, handler } = setup()
+
+    engine.fake!.next({ status: 401, json: envelope('invalid_api_key', 'req_pre') })
+
+    const response = await handler(post({ ...ask, stream: true }))
+    const text = await response.text()
+
+    expect(response.status).toBe(503)
+    expect(text).not.toContain('invalid_api_key')
+    expect((JSON.parse(text) as { error: { code: string } }).error.code).toBe('service_unavailable')
+  })
+
+  it.each(['rate_limited', 'model_not_allowed'])('passes %s through unchanged', async code => {
+    const { engine, handler } = setup()
+
+    engine.fake!.next(engineError(code))
+
+    const response = await handler(post(ask))
+    const json = (await response.json()) as { error: { code: string } }
+
+    expect(response.status).toBe(code === 'rate_limited' ? 429 : 403)
+    expect(json.error.code).toBe(code)
+  })
+
+  it('leaves the server-side client with the real error', async () => {
+    const engine = testEngine()
+    const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
+
+    engine.fake!.next(engineError('insufficient_credit'))
+
+    const { error } = await client.chat.create(ask as never)
+
+    expect(error?.code).toBe('insufficient_credit')
+  })
+
+  it('rewrites a mid-stream error frame, keeping the earlier text byte for byte', async () => {
+    const { engine, handler } = setup()
+
+    engine.fake!.next({
+      headers: { 'x-request-id': 'req_mid' },
+      chunks: [frame(chunk('Halo \u{1F600}')), frame(envelope('insufficient_credit', 'req_mid'))]
+    })
+
+    const response = await handler(post({ ...ask, stream: true }))
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain(frame(chunk('Halo \u{1F600}')))
+    expect(text).not.toContain('insufficient_credit')
+    expect(text).toContain('"code":"service_unavailable"')
+    expect(text).toContain('"request_id":"req_mid"')
+  })
+
+  it('rewrites an error frame cut into pieces at any byte', async () => {
+    const { engine, handler } = setup()
+    const bytes = new TextEncoder().encode(frame(chunk('ok \u{1F600}')) + frame(envelope('key_revoked', 'req_cut')))
+
+    engine.fake!.next({ chunks: Array.from(bytes, byte => new Uint8Array([byte])) })
+
+    const text = await (await handler(post({ ...ask, stream: true }))).text()
+
+    expect(text).toContain(frame(chunk('ok \u{1F600}')))
+    expect(text).not.toContain('key_revoked')
+    expect(text).toContain('service_unavailable')
+  })
+
+  it('passes a mid-stream pass-through error frame unchanged', async () => {
+    const { engine, handler } = setup()
+    const error = frame(envelope('upstream_unavailable', 'req_up'))
+
+    engine.fake!.next({ chunks: [frame(chunk('a')), error] })
+
+    const text = await (await handler(post({ ...ask, stream: true }))).text()
+
+    expect(text).toBe(frame(chunk('a')) + error)
   })
 })
