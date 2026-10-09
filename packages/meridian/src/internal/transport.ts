@@ -32,6 +32,29 @@ export interface Transport {
 }
 
 export const DEFAULT_TIMEOUT_MS = 60_000
+export const DEFAULT_MAX_RETRIES = 2
+const BASE_DELAY_MS = 500
+const MAX_JITTER_MS = 250
+const MAX_RETRY_AFTER_MS = 30_000
+
+/** Waits `ms`; false when the caller aborted first. */
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<boolean> {
+  return new Promise(resolve => {
+    if (signal?.aborted) return resolve(false)
+
+    const onAbort = () => {
+      clearTimeout(timer)
+      resolve(false)
+    }
+
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve(true)
+    }, ms)
+
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
 
 type Attempt =
   { kind: 'response'; opened: Opened } | { kind: 'error'; error: MeridianError; retryAfterMs: number | null }
@@ -39,6 +62,7 @@ type Attempt =
 export function createTransport(config: TransportConfig): Transport {
   const timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
   const base = config.baseUrl.replace(/\/+$/, '')
+  const maxRetries = Math.max(0, config.maxRetries ?? DEFAULT_MAX_RETRIES)
 
   function headersFor(call: Call): Headers {
     const headers = new Headers({ accept: 'application/json, text/event-stream', ...call.headers })
@@ -115,7 +139,22 @@ export function createTransport(config: TransportConfig): Transport {
   }
 
   async function run(call: Call): Promise<Attempt> {
-    return attempt(call)
+    for (let tried = 0; ; tried++) {
+      const outcome = await attempt(call)
+
+      // [1] A response, a final error, or a spent budget ends the loop
+      if (outcome.kind === 'response' || !outcome.error.retryable || tried >= maxRetries) return outcome
+
+      // [2] A server asking for a long wait gets its answer now, not after the wait
+      if (outcome.retryAfterMs !== null && outcome.retryAfterMs > MAX_RETRY_AFTER_MS) return outcome
+
+      // [3] Wait as asked, or back off with jitter; an abort ends the wait
+      const delay = outcome.retryAfterMs ?? BASE_DELAY_MS * 2 ** tried + Math.floor(Math.random() * MAX_JITTER_MS)
+
+      if (!(await sleep(delay, call.signal))) {
+        return { kind: 'error', error: clientError('aborted', 'The request was aborted.'), retryAfterMs: null }
+      }
+    }
   }
 
   return {
