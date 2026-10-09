@@ -83,22 +83,28 @@ describe('meridian-next', () => {
   })
 
   it('has a browser client that posts JSON to /api/meridian/chat without a key', async () => {
-    const seen: { url: string; init: RequestInit }[] = []
+    vi.stubGlobal('location', { href: 'http://app.test/' })
 
-    const browserFetch = (async (url: string, init: RequestInit) => {
-      seen.push({ url: String(url), init })
+    try {
+      const seen: { url: string; init: RequestInit }[] = []
 
-      return Response.json({ id: 'c', object: 'chat.completion', created: 0, model: 'm', choices: [] })
-    }) as unknown as typeof fetch
+      const browserFetch = (async (url: string, init: RequestInit) => {
+        seen.push({ url: String(url), init })
 
-    await createBrowserClient({ fetch: browserFetch }).chat.create({ messages: [{ role: 'user', content: 'hi' }] })
+        return Response.json({ id: 'c', object: 'chat.completion', created: 0, model: 'm', choices: [] })
+      }) as unknown as typeof fetch
 
-    const headers = new Headers(seen[0]!.init.headers)
+      await createBrowserClient({ fetch: browserFetch }).chat.create({ messages: [{ role: 'user', content: 'hi' }] })
 
-    expect(seen[0]!.url).toBe('/api/meridian/chat')
-    expect(seen[0]!.init.method).toBe('POST')
-    expect(headers.get('content-type')).toContain('application/json')
-    expect(headers.get('authorization')).toBeNull()
+      const headers = new Headers(seen[0]!.init.headers)
+
+      expect(seen[0]!.url).toBe('/api/meridian/chat')
+      expect(seen[0]!.init.method).toBe('POST')
+      expect(headers.get('content-type')).toContain('application/json')
+      expect(headers.get('authorization')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   describe('Pages Router', () => {

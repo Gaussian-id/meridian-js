@@ -1,5 +1,5 @@
 import { createApp, toWebHandler } from 'h3'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 
@@ -36,17 +36,23 @@ describe('meridian-nuxt', () => {
   })
 
   it('gives a browser client preset to the default route', async () => {
-    const seen: string[] = []
+    vi.stubGlobal('location', { href: 'http://app.test/' })
 
-    const spy = (async (input: RequestInfo | URL) => {
-      seen.push(String(input))
+    try {
+      const seen: string[] = []
 
-      return new Response('{}', { headers: { 'content-type': 'application/json' } })
-    }) as typeof fetch
+      const spy = (async (input: RequestInfo | URL) => {
+        seen.push(String(input))
 
-    await useMeridian({ fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
+        return new Response('{}', { headers: { 'content-type': 'application/json' } })
+      }) as typeof fetch
 
-    expect(seen).toEqual(['/api/meridian/chat'])
+      await useMeridian({ fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
+
+      expect(seen).toEqual(['/api/meridian/chat'])
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('returns an error value, not a throw, from the server client when runtime config is empty', async () => {

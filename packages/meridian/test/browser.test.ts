@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 import { createBrowserClient } from 'meridian/browser'
@@ -80,6 +80,62 @@ describe('createBrowserClient requests', () => {
   })
 
   it('defaults to the /api/meridian/chat route', async () => {
+    vi.stubGlobal('location', { href: 'http://app.test/' })
+
+    try {
+      const seen: string[] = []
+
+      const spy = (async (input: RequestInfo | URL) => {
+        seen.push(String(input))
+
+        return new Response('{}', { headers: { 'content-type': 'application/json' } })
+      }) as typeof fetch
+
+      await createBrowserClient({ fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
+
+      expect(seen).toEqual(['/api/meridian/chat'])
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe('createBrowserClient without a page origin', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('refuses a relative route as an error value when location is absent', async () => {
+    let called = false
+
+    const spy = (async () => {
+      called = true
+
+      return new Response('{}')
+    }) as typeof fetch
+
+    const meridian = createBrowserClient({ route: '/api/meridian/chat', fetch: spy })
+    const created = await meridian.chat.create({ messages: [{ role: 'user', content: 'x' }] })
+    const streamed = await meridian.chat.stream({ messages: [{ role: 'user', content: 'x' }] })
+
+    for (const result of [created, streamed]) {
+      expect(result.data).toBeNull()
+      expect(result.error).toMatchObject({ code: 'invalid_request', type: 'client_error', retryable: false })
+      expect(result.error?.message).toContain('absolute')
+    }
+
+    expect(called).toBe(false)
+  })
+
+  it('refuses the default route when location is absent', async () => {
+    const { error } = await createBrowserClient().chat.create({ messages: [{ role: 'user', content: 'x' }] })
+
+    expect(error?.message).toContain('absolute')
+  })
+
+  it('accepts a relative route when location exists', async () => {
+    vi.stubGlobal('location', { href: 'http://app.test/' })
+
     const seen: string[] = []
 
     const spy = (async (input: RequestInfo | URL) => {
@@ -88,8 +144,24 @@ describe('createBrowserClient requests', () => {
       return new Response('{}', { headers: { 'content-type': 'application/json' } })
     }) as typeof fetch
 
-    await createBrowserClient({ fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
+    await createBrowserClient({ route: '/x', fetch: spy }).chat.create({ messages: [{ role: 'user', content: 'x' }] })
 
-    expect(seen).toEqual(['/api/meridian/chat'])
+    expect(seen).toEqual(['/x'])
+  })
+
+  it('accepts an absolute route when location is absent', async () => {
+    const seen: string[] = []
+
+    const spy = (async (input: RequestInfo | URL) => {
+      seen.push(String(input))
+
+      return new Response('{}', { headers: { 'content-type': 'application/json' } })
+    }) as typeof fetch
+
+    await createBrowserClient({ route: 'https://app.example/x', fetch: spy }).chat.create({
+      messages: [{ role: 'user', content: 'x' }]
+    })
+
+    expect(seen).toEqual(['https://app.example/x'])
   })
 })
