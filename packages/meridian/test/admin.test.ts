@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'v
 import { createAdminClient, type AdminClient } from 'meridian/admin'
 
 import type { components } from '../src/generated/admin'
+import { withoutPrices, type WithoutPrices } from '../src/internal/cost-opacity'
 import type { Result } from '../src/internal/errors'
-import { contract, describeFake, testEngine } from './support/engine'
+import { describeFake, testEngine } from './support/engine'
 import { createFakeAdmin } from './support/fake-admin'
 import { engineError } from './support/fake-engine'
 
@@ -70,12 +71,6 @@ describe('createAdminClient', () => {
 
     expect(error).toMatchObject({ code: 'not_found', status: 404 })
   })
-
-  it.runIf(contract)('reads the catalogue', async () => {
-    const { ops } = admin()
-
-    expect((await ops.catalogue.list()).error).toBeNull()
-  })
 })
 
 describe('createAdminClient refusals', () => {
@@ -100,7 +95,7 @@ describe('createAdminClient refusals', () => {
   })
 })
 
-// The 23 operations the pinned admin spec declares for IntegratorKey, each called once with sentinel arguments
+// The IntegratorKey operations the client wraps (all but EXCLUDED_PRICE_OPERATIONS), each called once with sentinel arguments
 const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
   'POST /v1/orgs': ops => ops.orgs.create({ name: 'n' }),
   'GET /v1/orgs': ops => ops.orgs.list(),
@@ -120,13 +115,15 @@ const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
   'DELETE /v1/orgs/{org}/provider-credentials/{provider}': ops => ops.providerCredentials.delete('o1', 'gemini'),
   'GET /v1/orgs/{org}/projects/{project}/models': ops => ops.projectModels.get('o1', 'p1'),
   'PUT /v1/orgs/{org}/projects/{project}/models': ops => ops.projectModels.put('o1', 'p1', { models: [] }),
-  'GET /v1/catalogue': ops => ops.catalogue.list(),
-  'GET /v1/catalogue/{version}': ops => ops.catalogue.get(3),
   'GET /v1/models': ops => ops.models.list(),
   'GET /v1/models/{model}': ops => ops.models.get('m1'),
   'GET /v1/analytics/usage': ops => ops.analytics.usage({ project_id: 'p1' }),
   'GET /v1/logs': ops => ops.logs.list({ project_id: 'p1' })
 }
+
+// D-27 / owner decision 10 Oct: the supplier-catalogue operations return only supplier prices, so the admin client
+// does not wrap them at all; the billing service reads them from the engine's admin API directly.
+const EXCLUDED_PRICE_OPERATIONS = ['GET /v1/catalogue', 'GET /v1/catalogue/{version}']
 
 interface Spec {
   paths: Record<string, Record<string, { security?: Record<string, unknown>[] }>>
@@ -158,7 +155,7 @@ const jsonResponder = (payload: unknown, log?: string[]) =>
   }) as typeof fetch
 
 describe('admin operations match the pinned spec', () => {
-  it('wraps exactly the operations the engine declares for IntegratorKey', async () => {
+  it('wraps exactly the IntegratorKey operations, minus the excluded price operations', async () => {
     const engine = testEngine()
     const sent: string[] = []
 
@@ -169,13 +166,22 @@ describe('admin operations match the pinned spec', () => {
 
     for (const call of Object.values(calls)) await call(ops)
 
+    const wrapped = integratorOperations.filter(operation => !EXCLUDED_PRICE_OPERATIONS.includes(operation))
+
     // No method hides outside the table, and each call reached the route the spec declares
     const methodCount = Object.values(ops).reduce((sum, group: object) => sum + Object.keys(group).length, 0)
 
     expect(integratorOperations).toHaveLength(23)
+    expect(EXCLUDED_PRICE_OPERATIONS.every(operation => integratorOperations.includes(operation))).toBe(true)
     expect(methodCount).toBe(Object.keys(calls).length)
-    expect(Object.keys(calls).sort()).toEqual([...integratorOperations].sort())
-    expect(sent.sort()).toEqual([...integratorOperations].sort())
+    expect(Object.keys(calls).sort()).toEqual([...wrapped].sort())
+    expect(sent.sort()).toEqual([...wrapped].sort())
+  })
+
+  it('has no supplier-catalogue methods', () => {
+    const { ops } = admin()
+
+    expect(ops).not.toHaveProperty('catalogue')
   })
 
   it('has no way to rename or delete an organisation', () => {
@@ -213,14 +219,54 @@ describe('cost opacity (D-27)', () => {
     }
   })
 
-  it('exports no admin result type with a cost or price key', () => {
+  it('strips nested per_million, recovery_rate and write_off_rate keys but keeps rate limits', () => {
+    const reply = {
+      id: 'o1',
+      recovery_rate: 1,
+      write_off_rate: 2,
+      rate_limit_per_minute: 60,
+      rows: [
+        {
+          input_per_million: 3,
+          Output_Per_Million: 4,
+          rate_limit_per_day: 5,
+          deep: { cached_input_per_million: 6, ok: 7 }
+        }
+      ]
+    }
+
+    expect(withoutPrices(reply)).toEqual({
+      id: 'o1',
+      rate_limit_per_minute: 60,
+      rows: [{ rate_limit_per_day: 5, deep: { ok: 7 } }]
+    })
+  })
+
+  it('removes per_million and finance keys at the type level, and keeps rate limits', () => {
+    type Reply = {
+      input_per_million: number
+      recovery_rate: number
+      write_off_rate: number
+      rate_limit_per_minute: number
+      rows: { cached_input_per_million?: number | null; id: string }[]
+    }
+
+    expectTypeOf<WithoutPrices<Reply>>().toEqualTypeOf<{ rate_limit_per_minute: number; rows: { id: string }[] }>()
+  })
+
+  it('exports no admin result type with a cost, price, per_million or finance-rate key', () => {
     type Priced<T> = T extends readonly (infer U)[]
       ? Priced<U>
       : T extends object
         ? {
             [K in keyof T]-?:
               | (K extends string
-                  ? Lowercase<K> extends `${string}cost${string}` | `${string}price${string}`
+                  ? Lowercase<K> extends
+                      | `${string}cost${string}`
+                      | `${string}price${string}`
+                      | `${string}per_million${string}`
+                      | 'recovery_rate'
+                      | 'write_off_rate'
                     ? K
                     : never
                   : never)
@@ -236,6 +282,9 @@ describe('cost opacity (D-27)', () => {
 
     // The walker finds the key in the generated type, so an empty result for the client is meaningful
     expectTypeOf<Priced<components['schemas']['LogRow']>>().toEqualTypeOf<'cost_charged'>()
+    expectTypeOf<Priced<components['schemas']['SupplierPriceResponse']>>().toEqualTypeOf<
+      'input_per_million' | 'output_per_million' | 'cached_input_per_million'
+    >()
     expectTypeOf<[Every]>().toEqualTypeOf<[never]>()
   })
 })

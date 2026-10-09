@@ -1,10 +1,15 @@
-/** A key that names a price or a cost (D-27): the SDK never exposes one. */
+/** A key that names a price, a cost, a per-million rate or a finance rate (D-27): the SDK never exposes one. */
 // Substring matching may also drop a record key that is user data (say a field named "price_list"): that fails safe,
-// since a hidden field is better than a leaked price (D-27).
-const PRICED = /cost|price/i
+// since a hidden field is better than a leaked price (D-27). There is deliberately no broad /rate/: rate_limit_* survives.
+const PRICED = /cost|price|per_million|^(recovery_rate|write_off_rate)$/i
 
 type IsPriced<K> = K extends string
-  ? Lowercase<K> extends `${string}cost${string}` | `${string}price${string}`
+  ? Lowercase<K> extends
+      | `${string}cost${string}`
+      | `${string}price${string}`
+      | `${string}per_million${string}`
+      | 'recovery_rate'
+      | 'write_off_rate'
     ? true
     : false
   : false

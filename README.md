@@ -80,7 +80,7 @@ Forwarding notes:
 - The handler accepts `POST` with `application/json` only (415 otherwise).
 - By default the browser may set `messages`, `temperature` and `max_tokens`. `max_tokens` is capped at 4096. `model` and every other field are dropped unless `allow` permits them.
 - `messages` are forwarded as sent. A browser can send a `system` message. If your app needs a fixed system prompt, add it server-side.
-- When the engine refuses the app's own key or account (for example `invalid_api_key`, `key_revoked`, `insufficient_credit`, `hard_limit_reached`), the browser gets a generic 503 `service_unavailable` with the request id, in a stream frame too. Your server-side client still sees the real error.
+- When the engine refuses the app's own key or account (for example `invalid_api_key`, `key_revoked`, `insufficient_credit`, `hard_limit_reached`), the browser gets a generic 503 `service_unavailable` with the request id, in a stream frame too. A setup or configuration error (for example a missing key or a bad engine URL) becomes the same generic 503. This generic envelope is non-retryable, so the browser client does not retry it. Your server-side client still sees the real error.
 - The handler sets no body-size limit. Apply one in your app server.
 - The browser client's default route is relative, so it needs a browser. Use an absolute `route` anywhere else.
 - Cookies are sent for same-origin routes by default. A cross-origin route needs a custom `fetch`.
@@ -99,7 +99,7 @@ const admin = createAdminClient('https://YOUR-MERIDIAN-ADMIN-URL', process.env.M
 const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_reference: 'acme-1' })
 ```
 
-The 23 operations at a glance (every call returns `{ data, error }`):
+The 21 operations at a glance (every call returns `{ data, error }`):
 
 | Group                 | Operations                                  |
 | --------------------- | ------------------------------------------- |
@@ -108,12 +108,12 @@ The 23 operations at a glance (every call returns `{ data, error }`):
 | `keys`                | `create`, `list`, `revoke`                  |
 | `providerCredentials` | `list`, `put`, `delete`                     |
 | `projectModels`       | `get`, `put`                                |
-| `catalogue`           | `list`, `get`                               |
 | `models`              | `list`, `get`                               |
 | `analytics`           | `usage`                                     |
 | `logs`                | `list`                                      |
 
-`keys.create` returns the new `api_key` once, so store it. Cost and price fields are stripped from every reply: they never appear in the types or the data.
+`keys.create` returns the new `api_key` once, so store it.
+Prices are never exposed (D-27). The client wraps the engine's integrator-key operations except the two supplier-catalogue price operations (`GET /v1/catalogue` and `GET /v1/catalogue/{version}`), so there are no `catalogue` methods. Every reply also loses any `cost`, `price`, `per_million`, `recovery_rate` or `write_off_rate` field, in the types and in the data; `rate_limit_*` fields stay. A billing service reads supplier prices from the engine's admin API directly.
 
 ## Framework packages
 

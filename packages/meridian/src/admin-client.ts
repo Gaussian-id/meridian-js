@@ -11,7 +11,7 @@ type P = paths
 type Body<Op> = RequestBody<Op>
 type Query<Op> = Op extends { parameters: { query: infer Q } } ? Q : never
 
-/** The reply, minus any price or cost field (D-27). */
+/** The reply, minus any price, cost, per-million or finance-rate field (D-27). The supplier-catalogue operations are not wrapped at all. */
 type Out<Op> = Promise<Result<WithoutPrices<OkBody<Op>>>>
 type Done = Promise<Result<null>>
 
@@ -67,10 +67,6 @@ export interface AdminClient {
       body: Body<P['/v1/orgs/{org}/projects/{project}/models']['put']>,
       o?: RequestOptions
     ): Out<P['/v1/orgs/{org}/projects/{project}/models']['put']>
-  }
-  catalogue: {
-    list(o?: RequestOptions): Out<P['/v1/catalogue']['get']>
-    get(version: number, o?: RequestOptions): Out<P['/v1/catalogue/{version}']['get']>
   }
   models: {
     list(o?: RequestOptions): Out<P['/v1/models']['get']>
@@ -155,10 +151,6 @@ function createAdminApi(transport: Transport): AdminClient {
     projectModels: {
       get: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}/models`, o),
       put: (org, project, body, o) => write('PUT', path`/v1/orgs/${org}/projects/${project}/models`, body, o, true)
-    },
-    catalogue: {
-      list: o => read('/v1/catalogue', o),
-      get: (version, o) => read(path`/v1/catalogue/${version}`, o)
     },
     models: {
       list: o => read('/v1/models', o),
