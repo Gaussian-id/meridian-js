@@ -1,10 +1,13 @@
 import { defineConfig } from 'tsup'
 
 export default defineConfig({
-  // Task 1 ships only the core entry; later tasks add browser, admin and server.
-  entry: ['src/index.ts', 'src/server.ts', 'src/browser.ts'],
+  // Task 10 adds `admin: 'src/admin.ts'` here and its "./admin" entry in package.json exports.
+  entry: { index: 'src/index.ts', browser: 'src/browser.ts', server: 'src/server.ts' },
   format: ['esm', 'cjs'],
   dts: true,
+  splitting: false,
+  sourcemap: true,
   clean: true,
-  sourcemap: true
+  metafile: true,
+  target: 'es2022'
 })
