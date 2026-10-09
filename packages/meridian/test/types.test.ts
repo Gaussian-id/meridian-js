@@ -5,6 +5,9 @@ import type { ChatChunkRaw, ChatCompletion, ChatMessage, ChatParams, Model } fro
 import type { components } from '../src/generated/public'
 import type { EngineErrorCode } from '../src/internal/errors'
 
+/** The declared keys of an object type, ignoring the open `[key: string]: unknown` signature the spec adds. */
+type KnownKeys<T> = keyof { [P in keyof T as string extends P ? never : number extends P ? never : P]: T[P] }
+
 describe('public types come from the engine spec', () => {
   it('describes the chat request and reply', () => {
     expectTypeOf<ChatParams['messages']>().not.toBeUnknown()
@@ -14,8 +17,9 @@ describe('public types come from the engine spec', () => {
   })
 
   it('never exposes a model field the SDK fills in, nor stream controls', () => {
-    expectTypeOf<ChatParams>().not.toHaveProperty('stream')
-    expectTypeOf<ChatParams>().not.toHaveProperty('stream_options')
+    expectTypeOf<KnownKeys<ChatParams>>().not.toEqualTypeOf<never>()
+    expectTypeOf<'stream' | 'stream_options'>().not.toExtend<KnownKeys<ChatParams>>()
+    expectTypeOf<'messages'>().toExtend<KnownKeys<ChatParams>>()
   })
 
   it('keeps the engine error codes equal to the generated enum', () => {
@@ -23,9 +27,13 @@ describe('public types come from the engine spec', () => {
   })
 
   it('accepts a function tool literal', () => {
-    const tools = [{ type: 'function', function: { name: 'f', parameters: { type: 'object' } } }]
+    const params: ChatParams = {
+      messages: [{ role: 'user', content: 'hi' }],
+      tools: [{ type: 'function', function: { name: 'f', parameters: { type: 'object' } } }]
+    }
 
-    expectTypeOf(tools).toExtend<NonNullable<ChatParams['tools']>>()
+    expectTypeOf(params.tools).not.toBeAny()
+    expectTypeOf(params.tools).not.toBeUnknown()
   })
 
   it('accepts multi-turn tool messages and user', () => {
@@ -39,7 +47,7 @@ describe('public types come from the engine spec', () => {
 
     const params: ChatParams = { messages: [call, result], user: 'u1' }
 
-    expectTypeOf(params.user).toEqualTypeOf<string | undefined>()
+    expectTypeOf(params.user).toEqualTypeOf<string | null | undefined>()
   })
 
   it('keeps the raw chunk usable', () => {

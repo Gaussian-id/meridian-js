@@ -382,7 +382,7 @@
               "null"
             ],
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/Tool"
             },
             "description": "Tools, in the OpenAI shape. A non-empty list needs a model with tool support."
           },
@@ -393,8 +393,16 @@
             ],
             "format": "double",
             "description": "Nucleus sampling, forwarded."
+          },
+          "user": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A stable id for the end user, forwarded to the provider."
           }
-        }
+        },
+        "additionalProperties": true
       },
       "ChatMessage": {
         "type": "object",
@@ -414,11 +422,36 @@
               }
             ]
           },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The author's name, forwarded."
+          },
           "role": {
-            "type": "string",
-            "description": "`system`, `developer`, `user`, `assistant` or `tool`."
+            "$ref": "#/components/schemas/MessageRole",
+            "description": "Who wrote the message."
+          },
+          "tool_call_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "On a `tool` message: the id of the tool call it answers."
+          },
+          "tool_calls": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ToolCall"
+            },
+            "description": "On an `assistant` message: the tool calls the model made."
           }
-        }
+        },
+        "additionalProperties": true
       },
       "ChunkChoice": {
         "type": "object",
@@ -430,8 +463,8 @@
         ],
         "properties": {
           "delta": {
-            "type": "object",
-            "description": "The provider delta, forwarded: `content`, `reasoning`, `tool_calls` pieces, or `{}` at\nthe finish."
+            "$ref": "#/components/schemas/ChunkDelta",
+            "description": "The provider delta, forwarded; `{}` at the finish."
           },
           "finish_reason": {
             "oneOf": [
@@ -450,6 +483,62 @@
             "minimum": 0
           }
         }
+      },
+      "ChunkDelta": {
+        "type": "object",
+        "description": "The provider's delta of a streamed reply, forwarded as it came. Every key is optional; keys\nnot listed here pass through.",
+        "properties": {
+          "content": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A piece of the text; `null` on a delta that carries only tool calls."
+          },
+          "reasoning": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A piece of the reasoning text."
+          },
+          "reasoning_content": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A piece of the reasoning text, under the other common name."
+          },
+          "refusal": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A piece of a refusal."
+          },
+          "role": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AssistantRole",
+                "description": "Present on the first delta of some providers."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tool_calls": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/ToolCallDelta"
+            },
+            "description": "Pieces of tool calls; a piece belongs to the call its `index` names."
+          }
+        },
+        "additionalProperties": true
       },
       "ChunkObject": {
         "type": "string",
@@ -661,6 +750,17 @@
         ],
         "description": "A message content: plain text, or a list of typed parts."
       },
+      "MessageRole": {
+        "type": "string",
+        "description": "The role of a message. The engine forwards the role as sent and does not check it; these are\nthe roles providers accept.",
+        "enum": [
+          "system",
+          "developer",
+          "user",
+          "assistant",
+          "tool"
+        ]
+      },
       "ModelList": {
         "type": "object",
         "description": "`GET /v1/models`.",
@@ -756,6 +856,24 @@
           }
         }
       },
+      "Tool": {
+        "type": "object",
+        "description": "A tool the model may call.",
+        "required": [
+          "type",
+          "function"
+        ],
+        "properties": {
+          "function": {
+            "$ref": "#/components/schemas/ToolFunction",
+            "description": "The function."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ToolKind",
+            "description": "The only kind of tool."
+          }
+        }
+      },
       "ToolCall": {
         "type": "object",
         "description": "One merged tool call.",
@@ -776,6 +894,68 @@
           }
         }
       },
+      "ToolCallDelta": {
+        "type": "object",
+        "description": "One piece of a streamed tool call.",
+        "required": [
+          "index"
+        ],
+        "properties": {
+          "function": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolCallDeltaFunction",
+                "description": "The function name and a piece of its arguments."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The call id, on its first piece."
+          },
+          "index": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The call this piece belongs to.",
+            "minimum": 0
+          },
+          "type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`function`, on the first piece."
+          }
+        },
+        "additionalProperties": true
+      },
+      "ToolCallDeltaFunction": {
+        "type": "object",
+        "description": "The function of a tool-call piece.",
+        "properties": {
+          "arguments": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A piece of the JSON arguments; the pieces join into the whole."
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The function name, on the first piece."
+          }
+        },
+        "additionalProperties": true
+      },
       "ToolCallFunction": {
         "type": "object",
         "description": "A tool call function.",
@@ -791,6 +971,37 @@
             "type": "string"
           }
         }
+      },
+      "ToolFunction": {
+        "type": "object",
+        "description": "The function of a tool.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "What the function does."
+          },
+          "name": {
+            "type": "string",
+            "description": "The function name."
+          },
+          "parameters": {
+            "type": "object",
+            "description": "A JSON Schema object for the arguments; its content is not checked."
+          }
+        }
+      },
+      "ToolKind": {
+        "type": "string",
+        "description": "The `type` of a tool.",
+        "enum": [
+          "function"
+        ]
       },
       "Usage": {
         "type": "object",

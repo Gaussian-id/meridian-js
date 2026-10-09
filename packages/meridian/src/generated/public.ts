@@ -167,29 +167,57 @@ export interface components {
             /** @description Tool choice, in the OpenAI shape. */
             tool_choice?: unknown;
             /** @description Tools, in the OpenAI shape. A non-empty list needs a model with tool support. */
-            tools?: Record<string, unknown>[] | null;
+            tools?: components["schemas"]["Tool"][] | null;
             /**
              * Format: double
              * @description Nucleus sampling, forwarded.
              */
             top_p?: number | null;
+            /** @description A stable id for the end user, forwarded to the provider. */
+            user?: string | null;
+        } & {
+            [key: string]: unknown;
         };
         /** @description One message of the conversation. */
         ChatMessage: {
             content?: components["schemas"]["MessageContent"] | null;
-            /** @description `system`, `developer`, `user`, `assistant` or `tool`. */
-            role: string;
+            /** @description The author's name, forwarded. */
+            name?: string | null;
+            /** @description Who wrote the message. */
+            role: components["schemas"]["MessageRole"];
+            /** @description On a `tool` message: the id of the tool call it answers. */
+            tool_call_id?: string | null;
+            /** @description On an `assistant` message: the tool calls the model made. */
+            tool_calls?: components["schemas"]["ToolCall"][] | null;
+        } & {
+            [key: string]: unknown;
         };
         /** @description The choice of a chunk: a delta, and the finish reason on the last one. */
         ChunkChoice: {
-            /**
-             * @description The provider delta, forwarded: `content`, `reasoning`, `tool_calls` pieces, or `{}` at
-             *     the finish.
-             */
-            delta: Record<string, unknown>;
+            /** @description The provider delta, forwarded; `{}` at the finish. */
+            delta: components["schemas"]["ChunkDelta"];
             finish_reason: components["schemas"]["FinishReasonName"] | null;
             /** Format: int32 */
             index: number;
+        };
+        /**
+         * @description The provider's delta of a streamed reply, forwarded as it came. Every key is optional; keys
+         *     not listed here pass through.
+         */
+        ChunkDelta: {
+            /** @description A piece of the text; `null` on a delta that carries only tool calls. */
+            content?: string | null;
+            /** @description A piece of the reasoning text. */
+            reasoning?: string | null;
+            /** @description A piece of the reasoning text, under the other common name. */
+            reasoning_content?: string | null;
+            /** @description A piece of a refusal. */
+            refusal?: string | null;
+            role?: components["schemas"]["AssistantRole"] | null;
+            /** @description Pieces of tool calls; a piece belongs to the call its `index` names. */
+            tool_calls?: components["schemas"]["ToolCallDelta"][] | null;
+        } & {
+            [key: string]: unknown;
         };
         /**
          * @description The `object` of a streamed chunk.
@@ -253,6 +281,12 @@ export interface components {
         ListObject: "list";
         /** @description A message content: plain text, or a list of typed parts. */
         MessageContent: string | components["schemas"]["ContentPart"][];
+        /**
+         * @description The role of a message. The engine forwards the role as sent and does not check it; these are
+         *     the roles providers accept.
+         * @enum {string}
+         */
+        MessageRole: "system" | "developer" | "user" | "assistant" | "tool";
         /** @description `GET /v1/models`. */
         ModelList: {
             data: components["schemas"]["ModelObject"][];
@@ -288,17 +322,62 @@ export interface components {
             /** @description End the stream with a usage chunk (`choices: []`) before `[DONE]`. */
             include_usage?: boolean | null;
         };
+        /** @description A tool the model may call. */
+        Tool: {
+            /** @description The function. */
+            function: components["schemas"]["ToolFunction"];
+            /** @description The only kind of tool. */
+            type: components["schemas"]["ToolKind"];
+        };
         /** @description One merged tool call. */
         ToolCall: {
             function: components["schemas"]["ToolCallFunction"];
             id: string;
             type: string;
         };
+        /** @description One piece of a streamed tool call. */
+        ToolCallDelta: {
+            function?: components["schemas"]["ToolCallDeltaFunction"] | null;
+            /** @description The call id, on its first piece. */
+            id?: string | null;
+            /**
+             * Format: int32
+             * @description The call this piece belongs to.
+             */
+            index: number;
+            /** @description `function`, on the first piece. */
+            type?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
+        /** @description The function of a tool-call piece. */
+        ToolCallDeltaFunction: {
+            /** @description A piece of the JSON arguments; the pieces join into the whole. */
+            arguments?: string | null;
+            /** @description The function name, on the first piece. */
+            name?: string | null;
+        } & {
+            [key: string]: unknown;
+        };
         /** @description A tool call function. */
         ToolCallFunction: {
             arguments: string;
             name: string;
         };
+        /** @description The function of a tool. */
+        ToolFunction: {
+            /** @description What the function does. */
+            description?: string | null;
+            /** @description The function name. */
+            name: string;
+            /** @description A JSON Schema object for the arguments; its content is not checked. */
+            parameters?: Record<string, unknown>;
+        };
+        /**
+         * @description The `type` of a tool.
+         * @enum {string}
+         */
+        ToolKind: "function";
         /**
          * @description Token counts in the OpenAI names. A count the provider did not report is absent;
          *     `total_tokens` only when input and output are both known. Never a price or cost (D-27).

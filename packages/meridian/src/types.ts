@@ -1,6 +1,6 @@
 import type { components, paths } from './generated/public'
 import type { MeridianError, Result } from './internal/errors'
-import type { OkBody, OkEvent, RequestBody } from './internal/openapi'
+import type { OkBody, OkEvent, OmitKnown, RequestBody } from './internal/openapi'
 
 export type { MeridianError, MeridianErrorCode, MeridianErrorType, Result } from './internal/errors'
 
@@ -9,16 +9,11 @@ type GeneratedParams = RequestBody<ChatOperation>
 type GeneratedCompletion = OkBody<ChatOperation>
 type Schemas = components['schemas']
 
-// STOPGAP: remove when the engine schema lists these (engine follow-up)
-type ForwardedMessageFields = { name?: string; tool_call_id?: string; tool_calls?: Schemas['ToolCall'][] }
-
-/** The request, minus `stream` and `stream_options`: `chat.create` and `chat.stream` own those. */
-export type ChatParams = Omit<GeneratedParams, 'stream' | 'stream_options' | 'messages'> & {
-  messages: (GeneratedParams['messages'][number] & ForwardedMessageFields)[]
-
-  // STOPGAP: remove when the engine schema lists these (engine follow-up)
-  user?: string
-}
+/**
+ * The request, minus `stream` and `stream_options`: `chat.create` and `chat.stream` own those.
+ * `role` is the generated enum for autocomplete; the engine forwards any role as sent.
+ */
+export type ChatParams = OmitKnown<GeneratedParams, 'stream' | 'stream_options'>
 export type ChatMessage = ChatParams['messages'][number]
 
 /** The three token counts; the SDK drops every other usage field (details, and anything the engine adds). */
@@ -28,12 +23,8 @@ export type Model = OkBody<paths['/v1/models']['get']> extends { data: (infer M)
 
 type ChunkEvent = OkEvent<ChatOperation>
 
-/** A raw chunk. The spec types the provider delta as an open object (`Record<string, unknown>`), so it is narrowed here to the fields the SDK reads. */
-export type ChatChunkRaw = Omit<ChunkEvent, 'choices'> & {
-  choices: (Omit<ChunkEvent['choices'][number], 'delta'> & {
-    delta: { content?: string | null; role?: string; [key: string]: unknown }
-  })[]
-}
+/** A raw chunk, as the generated schema types it (the delta is `ChunkDelta`: content, role, reasoning, refusal, tool_calls). */
+export type ChatChunkRaw = ChunkEvent
 
 export interface ClientOptions {
   fetch?: typeof fetch

@@ -9,3 +9,8 @@ type Success<R> = R extends { 200: infer A } ? A : R extends { 201: infer B } ? 
 export type RequestBody<Op> = Op extends { requestBody?: infer R } ? JsonBody<NonNullable<R>> : never
 export type OkBody<Op> = Op extends { responses: infer R } ? JsonBody<Success<R>> : never
 export type OkEvent<Op> = Op extends { responses: infer R } ? EventBody<Success<R>> : never
+
+/** `Omit` that keeps the open `[key: string]: unknown` signature the spec adds (plain `Omit` collapses every known key into it). */
+export type OmitKnown<T, K extends PropertyKey> = {
+  [P in keyof T as string extends P ? P : number extends P ? P : P extends K ? never : P]: T[P]
+}
