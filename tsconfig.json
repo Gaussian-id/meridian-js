@@ -7,7 +7,9 @@
       "meridian": ["packages/meridian/src/index.ts"],
       "meridian/*": ["packages/meridian/src/*.ts"],
       "meridian-next": ["packages/meridian-next/src/index.ts"],
-      "meridian-next/*": ["packages/meridian-next/src/*.ts"]
+      "meridian-next/*": ["packages/meridian-next/src/*.ts"],
+      "meridian-nuxt/*": ["packages/meridian-nuxt/src/*.ts"],
+      "#imports": ["packages/meridian-nuxt/test/support/imports-stub.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"],

@@ -1,0 +1,39 @@
+{
+  "name": "meridian-nuxt",
+  "version": "0.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./composables": {
+      "types": "./dist/composables.d.ts",
+      "import": "./dist/composables.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup"
+  },
+  "dependencies": {
+    "meridian": "workspace:*"
+  },
+  "peerDependencies": {
+    "nuxt": ">=3.13",
+    "h3": ">=1.12"
+  },
+  "devDependencies": {
+    "nuxt": "^4",
+    "vue": "^3",
+    "h3": "^1"
+  }
+}
