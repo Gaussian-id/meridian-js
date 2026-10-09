@@ -91,6 +91,7 @@ function hideStreamErrors(response: Response): Response {
   const decoder = new TextDecoder()
   const encoder = new TextEncoder()
   let buffer = ''
+  let searched = 0
 
   const body = response.body.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
@@ -98,15 +99,25 @@ function hideStreamErrors(response: Response): Response {
         // [1] Decode (a split character waits for its next bytes) and cut complete events
         buffer += decoder.decode(bytes, { stream: true })
 
-        for (let match = EVENT_END.exec(buffer); match; match = EVENT_END.exec(buffer)) {
-          const end = match.index + match[0].length
+        for (;;) {
+          // Search only the new text (plus 3 characters a split line ending may straddle), so a long event stays linear
+          const found = EVENT_END.exec(buffer.slice(searched))
+
+          if (!found) break
+
+          const start = searched + found.index
+          const end = start + found[0].length
 
           // [2] A hidden error frame is replaced; any other event is re-emitted as it came
-          const rewritten = hiddenFrame(buffer.slice(0, match.index))
+          const rewritten = hiddenFrame(buffer.slice(0, start))
 
           controller.enqueue(encoder.encode(rewritten === null ? buffer.slice(0, end) : `${rewritten}\n\n`))
           buffer = buffer.slice(end)
+          searched = 0
         }
+
+        // The buffer is never flushed uninspected: a security filter must not fail open on size
+        searched = Math.max(0, buffer.length - 3)
       },
       flush(controller) {
         // [3] An event the engine left without its blank line is checked the same way

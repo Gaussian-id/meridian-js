@@ -431,13 +431,19 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
   it('hides the code on a refusal that arrives before a stream starts', async () => {
     const { engine, handler } = setup()
 
-    engine.fake!.next({ status: 401, json: envelope('invalid_api_key', 'req_pre') })
+    engine.fake!.next({
+      status: 401,
+      headers: { 'retry-after': '9' },
+      json: envelope('invalid_api_key', 'req_pre')
+    })
 
     const response = await handler(post({ ...ask, stream: true }))
     const text = await response.text()
 
     expect(response.status).toBe(503)
+    expect(response.headers.get('retry-after')).toBeNull()
     expect(text).not.toContain('invalid_api_key')
+    expect((JSON.parse(text) as { error: { request_id: string } }).error.request_id).toBe('req_pre')
     expect((JSON.parse(text) as { error: { code: string } }).error.code).toBe('service_unavailable')
   })
 
@@ -504,5 +510,31 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
     const text = await (await handler(post({ ...ask, stream: true }))).text()
 
     expect(text).toBe(frame(chunk('a')) + error)
+  })
+
+  it('still rewrites a hidden error frame that is larger than 64 KiB and arrives in small pieces', async () => {
+    const { engine, handler } = setup()
+    const big = { error: { ...envelope('hard_limit_reached', 'req_big').error, message: 'x'.repeat(200_000) } }
+    const bytes = new TextEncoder().encode(frame(chunk('a')) + frame(big))
+    const pieces: Uint8Array[] = []
+
+    for (let at = 0; at < bytes.length; at += 512) pieces.push(bytes.slice(at, at + 512))
+
+    engine.fake!.next({ chunks: pieces })
+
+    const text = await (await handler(post({ ...ask, stream: true }))).text()
+
+    expect(text).toContain(frame(chunk('a')))
+    expect(text).not.toContain('hard_limit_reached')
+    expect(text.length).toBeLessThan(1000)
+  })
+
+  it('passes a large non-error event through untouched', async () => {
+    const { engine, handler } = setup()
+    const big = frame(chunk('y'.repeat(200_000)))
+
+    engine.fake!.next({ chunks: [big, frame('[DONE]')] })
+
+    expect(await (await handler(post({ ...ask, stream: true }))).text()).toBe(big + frame('[DONE]'))
   })
 })

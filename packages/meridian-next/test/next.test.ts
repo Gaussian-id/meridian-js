@@ -9,7 +9,7 @@ import { createRouteHandler, createServerClient } from 'meridian-next'
 import { createBrowserClient } from 'meridian-next/browser'
 import { createPagesHandler } from 'meridian-next/pages'
 
-import { testEngine } from '../../meridian/test/support/engine'
+import { contract, testEngine } from '../../meridian/test/support/engine'
 
 const messages = [{ role: 'user', content: 'hi' }]
 const json = { 'content-type': 'application/json' }
@@ -72,12 +72,12 @@ describe('meridian-next', () => {
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe('invalid_request')
   })
 
-  it('hides a revoked app key from the browser behind the route', async () => {
+  it.runIf(!contract)('hides a revoked app key from the browser behind the route', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
     const { POST } = createRouteHandler({ client, authorize: () => true })
 
-    engine.fake?.next({
+    engine.fake!.next({
       status: 401,
       json: { error: { message: 'revoked', type: 'authentication_error', code: 'key_revoked', request_id: 'req_n' } }
     })
