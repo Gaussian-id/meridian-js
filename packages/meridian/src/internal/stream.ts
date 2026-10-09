@@ -52,10 +52,31 @@ async function* events(body: ReadableStream<Uint8Array>): AsyncGenerator<string>
   }
 }
 
+/** A chunk frame, or null when it is not JSON of the expected shape. */
+function parseChunk(data: string): ChatChunkRaw | null {
+  try {
+    const value = JSON.parse(data) as ChatChunkRaw
+
+    return Array.isArray(value?.choices) ? value : null
+  } catch {
+    return null
+  }
+}
+
+/** Only the token counts leave the SDK; any other field in the engine's usage is dropped. */
+function tokenCounts(usage: Usage): Usage {
+  return {
+    prompt_tokens: usage.prompt_tokens,
+    completion_tokens: usage.completion_tokens,
+    total_tokens: usage.total_tokens
+  }
+}
+
 class ChatStreamImpl implements ChatStream {
   #error: MeridianError | null = null
   #usage: Usage | null = null
   #consumed = false
+  #cancelled = false
 
   constructor(
     private readonly opened: Opened,
@@ -75,7 +96,15 @@ class ChatStreamImpl implements ChatStream {
   }
 
   cancel() {
+    // [1] A cancel is the caller's own doing: it ends as aborted, and nothing reads the body afterwards
+    this.#cancelled = true
     this.opened.abort()
+
+    if (!this.#consumed) {
+      this.#consumed = true
+      this.#error ??= clientError('aborted', 'The stream was cancelled.')
+      this.opened.release()
+    }
   }
 
   async *[Symbol.asyncIterator](): AsyncGenerator<ChatChunk> {
@@ -105,27 +134,34 @@ class ChatStreamImpl implements ChatStream {
           break
         }
 
-        const raw = JSON.parse(data) as ChatChunkRaw
+        const raw = parseChunk(data)
+
+        if (!raw) {
+          ended = 'failed'
+          this.#error = clientError('network_error', 'The stream sent a frame that is not valid JSON.')
+          break
+        }
 
         if (raw.choices.length === 0) {
-          if (raw.usage) this.#usage = raw.usage
+          if (raw.usage) this.#usage = tokenCounts(raw.usage)
           continue
         }
 
-        yield { delta: raw.choices[0]?.delta.content ?? '', raw }
+        yield { delta: raw.choices[0]?.delta?.content ?? '', raw }
       }
 
       ended ??= 'eof'
     } catch {
       // [3] The body broke: the caller aborted, or the connection failed
       ended = 'failed'
-      this.#error = this.signal?.aborted
-        ? clientError('aborted', 'The stream was aborted.')
-        : clientError('network_error', 'The stream connection failed.')
+      this.#error =
+        this.#cancelled || this.signal?.aborted
+          ? clientError('aborted', 'The stream was aborted.')
+          : clientError('network_error', 'The stream connection failed.')
     } finally {
       // [4] A body that ended without [DONE] lost its connection; a consumer that stopped early cancels upstream
       if (ended === 'eof') this.#error = clientError('network_error', 'The stream ended before it finished.')
-      if (ended === null) this.opened.abort()
+      if (ended !== 'done') this.opened.abort()
       this.opened.release()
     }
   }

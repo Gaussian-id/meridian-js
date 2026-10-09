@@ -79,19 +79,14 @@ describeFake('chat.stream edge cases', () => {
     expect(stream!.error).toBeNull()
   })
 
-  it('loses and duplicates nothing when the wire arrives one byte at a time', async () => {
+  it('loses and duplicates nothing when a CRLF wire arrives one byte at a time', async () => {
     const { engine, meridian } = client()
-
-    const wire = `data: ${JSON.stringify(chunk('Selamat pagi 👋 é'))}
-
-
-
-data: ${JSON.stringify(chunk('!'))}
-
-${frame(finish())}${frame('[DONE]')}`
-
+    const one = JSON.stringify(chunk('Selamat pagi 👋 é'))
+    const two = JSON.stringify(chunk('!'))
+    const wire = `data: ${one}\r\n\r\ndata: ${two}\r\n\r\n${frame(finish())}${frame('[DONE]')}`
     const bytes = new TextEncoder().encode(wire)
 
+    expect(wire).toContain('\r\n\r\n')
     engine.fake!.next({ chunks: Array.from(bytes, (_, index) => bytes.slice(index, index + 1)) })
 
     const { data: stream } = await meridian.chat.stream({ messages })
@@ -101,6 +96,125 @@ ${frame(finish())}${frame('[DONE]')}`
 
     expect(pieces).toEqual(['Selamat pagi 👋 é', '!', ''])
     expect(stream!.error).toBeNull()
+  })
+
+  it('keeps a multi-line data field as one event when the split falls inside its CRLF', async () => {
+    const { engine, meridian } = client()
+    const encoder = new TextEncoder()
+    const half = JSON.stringify(chunk('x'))
+    const cut = half.indexOf(',')
+    const wire = [`data: ${half.slice(0, cut)}\r`, `\ndata: ${half.slice(cut)}\r\n\r\n`, frame('[DONE]')]
+
+    engine.fake!.next({ chunks: wire.map(piece => encoder.encode(piece)) })
+    const { data: stream } = await meridian.chat.stream({ messages })
+    const pieces: string[] = []
+
+    for await (const piece of stream!) pieces.push(piece.delta)
+
+    expect(pieces).toEqual(['x'])
+    expect(stream!.error).toBeNull()
+  })
+
+  it('cancel() mid-stream ends as aborted and reaches the engine', async () => {
+    const engine = testEngine()
+    const signals: AbortSignal[] = []
+
+    const meridian = createClient(engine.publicUrl, engine.projectKey, {
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.signal) signals.push(init.signal)
+
+        return engine.fetch(input, init)
+      }) as typeof fetch,
+      maxRetries: 0
+    })
+
+    engine.fake!.next({ chunks: [frame(chunk('first'))], hang: true })
+    const { data: stream } = await meridian.chat.stream({ messages })
+    const pieces: string[] = []
+
+    for await (const piece of stream!) {
+      pieces.push(piece.delta)
+      stream!.cancel()
+    }
+
+    expect(pieces).toEqual(['first'])
+    expect(stream!.error).toMatchObject({ code: 'aborted', retryable: false })
+    expect(signals.at(-1)!.aborted).toBe(true)
+  })
+
+  it('cancel() before reading ends as aborted and detaches from the caller signal', async () => {
+    const { engine, meridian } = client()
+    const controller = new AbortController()
+
+    engine.fake!.next({ chunks: [frame(chunk('a'))], hang: true })
+    const { data: stream } = await meridian.chat.stream({ messages }, { signal: controller.signal })
+
+    stream!.cancel()
+    const { data, error } = await stream!.text()
+
+    expect(data).toBeNull()
+    expect(error?.code).toBe('aborted')
+  })
+
+  it('aborts upstream when the consumer breaks out of the loop', async () => {
+    const engine = testEngine()
+    const signals: AbortSignal[] = []
+
+    const meridian = createClient(engine.publicUrl, engine.projectKey, {
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.signal) signals.push(init.signal)
+
+        return engine.fetch(input, init)
+      }) as typeof fetch,
+      maxRetries: 0
+    })
+
+    engine.fake!.next({ chunks: [frame(chunk('a')), frame(chunk('b'))], hang: true })
+    const { data: stream } = await meridian.chat.stream({ messages })
+
+    for await (const piece of stream!) {
+      expect(piece.delta).toBe('a')
+      break
+    }
+
+    expect(signals.at(-1)!.aborted).toBe(true)
+  })
+
+  it('aborts upstream and names the problem when a frame is not valid JSON', async () => {
+    const engine = testEngine()
+    const signals: AbortSignal[] = []
+
+    const meridian = createClient(engine.publicUrl, engine.projectKey, {
+      fetch: ((input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.signal) signals.push(init.signal)
+
+        return engine.fetch(input, init)
+      }) as typeof fetch,
+      maxRetries: 0
+    })
+
+    engine.fake!.next({ chunks: [frame(chunk('ok')), frame('{not json'), frame(chunk('late'))], hang: true })
+    const { data: stream } = await meridian.chat.stream({ messages })
+    const pieces: string[] = []
+
+    for await (const piece of stream!) pieces.push(piece.delta)
+
+    expect(pieces).toEqual(['ok'])
+    expect(stream!.error).toMatchObject({ code: 'network_error' })
+    expect(stream!.error?.message).toMatch(/not valid JSON/)
+    expect(signals.at(-1)!.aborted).toBe(true)
+  })
+
+  it('copies only the three token counts into usage', async () => {
+    const { engine, meridian } = client()
+    const extra = { ...usageChunk(1, 2), usage: { ...usageChunk(1, 2).usage, cost: 0.5 } }
+
+    engine.fake!.next({ chunks: [frame(chunk('x')), frame(extra), frame('[DONE]')] })
+    const { data: stream } = await meridian.chat.stream({ messages })
+
+    await stream!.text()
+
+    expect(stream!.usage).toEqual({ prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 })
   })
 
   it('reports an error frame mid-stream on stream.error, without throwing', async () => {
