@@ -1,5 +1,8 @@
 import source from '../../../spec/SOURCE.json'
 
+export { createClient } from './server-client'
+export type * from './types'
+
 /** The engine API version this SDK was generated against. */
 export const ENGINE_API_VERSION: string = source.publicVersion
 

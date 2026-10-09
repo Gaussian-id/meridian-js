@@ -1,0 +1,154 @@
+import { clientError, errorFromResponse, fail, ok, type MeridianError, type Result } from './errors'
+
+export interface TransportConfig {
+  baseUrl: string
+  key?: string
+  fetch?: typeof fetch
+  timeout?: number
+  maxRetries?: number
+}
+
+export interface Call {
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  path: string
+  body?: unknown
+  signal?: AbortSignal
+  headers?: Record<string, string>
+}
+
+export interface Opened {
+  response: Response
+
+  /** Stop listening to the caller's signal once the body is finished. */
+  release: () => void
+
+  /** Cancel the request upstream. */
+  abort: () => void
+}
+
+export interface Transport {
+  json<T>(call: Call): Promise<Result<T>>
+  open(call: Call): Promise<Result<Opened>>
+}
+
+export const DEFAULT_TIMEOUT_MS = 60_000
+
+type Attempt =
+  { kind: 'response'; opened: Opened } | { kind: 'error'; error: MeridianError; retryAfterMs: number | null }
+
+export function createTransport(config: TransportConfig): Transport {
+  const send = config.fetch ?? globalThis.fetch.bind(globalThis)
+  const timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
+  const base = config.baseUrl.replace(/\/+$/, '')
+
+  function headersFor(call: Call): Headers {
+    const headers = new Headers({ accept: 'application/json, text/event-stream', ...call.headers })
+
+    if (call.body !== undefined) headers.set('content-type', 'application/json')
+    if (config.key) headers.set('authorization', `Bearer ${config.key}`)
+
+    return headers
+  }
+
+  async function attempt(call: Call): Promise<Attempt> {
+    // [1] A deadline for this attempt, joined to the caller's signal
+    const controller = new AbortController()
+    let timedOut = false
+
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeout)
+
+    const onAbort = () => controller.abort()
+
+    call.signal?.addEventListener('abort', onAbort, { once: true })
+
+    const release = () => {
+      clearTimeout(timer)
+      call.signal?.removeEventListener('abort', onAbort)
+    }
+
+    if (call.signal?.aborted) {
+      release()
+
+      return { kind: 'error', error: clientError('aborted', 'The request was aborted.'), retryAfterMs: null }
+    }
+
+    try {
+      // [2] Send the request
+      const response = await send(`${base}${call.path}`, {
+        method: call.method,
+        headers: headersFor(call),
+        body: call.body === undefined ? undefined : JSON.stringify(call.body),
+        signal: controller.signal
+      })
+
+      // [3] Headers arrived: the deadline no longer applies; the caller's signal still does
+      clearTimeout(timer)
+
+      if (response.ok) return { kind: 'response', opened: { response, release, abort: () => controller.abort() } }
+      const error = await errorFromResponse(response)
+
+      release()
+
+      return { kind: 'error', error, retryAfterMs: retryAfterMs(response.headers.get('retry-after')) }
+    } catch {
+      // [4] No response: aborted by the caller, timed out, or the network failed
+      release()
+      if (call.signal?.aborted)
+        return { kind: 'error', error: clientError('aborted', 'The request was aborted.'), retryAfterMs: null }
+      const message = timedOut ? `No response within ${timeout} ms.` : 'The network request failed.'
+
+      return { kind: 'error', error: clientError('network_error', message), retryAfterMs: null }
+    }
+  }
+
+  async function run(call: Call): Promise<Attempt> {
+    return attempt(call)
+  }
+
+  return {
+    async json<T>(call: Call): Promise<Result<T>> {
+      const outcome = await run(call)
+
+      if (outcome.kind === 'error') return fail(outcome.error)
+      const { response, release } = outcome.opened
+
+      // [1] No content is null data
+      if (response.status === 204) {
+        release()
+
+        return ok(null as T)
+      }
+
+      // [2] Parse the body; a body that is not JSON is a transport failure
+      const text = await response.text().catch(() => '')
+
+      release()
+
+      try {
+        return ok(JSON.parse(text) as T)
+      } catch {
+        return fail(clientError('network_error', 'The response was not valid JSON.', response.status))
+      }
+    },
+
+    async open(call: Call): Promise<Result<Opened>> {
+      const outcome = await run(call)
+
+      return outcome.kind === 'error' ? fail(outcome.error) : ok(outcome.opened)
+    }
+  }
+}
+
+/** `Retry-After` in seconds or as an HTTP date, in milliseconds; null when absent or unreadable. */
+export function retryAfterMs(value: string | null): number | null {
+  if (!value) return null
+  const seconds = Number(value)
+
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000)
+  const date = Date.parse(value)
+
+  return Number.isNaN(date) ? null : Math.max(0, date - Date.now())
+}
