@@ -41,18 +41,31 @@ export function errorResponse(error: MeridianError): Response {
 const refuse = (
   code: 'invalid_request' | 'permission_denied' | 'method_not_allowed',
   status: number,
-  message: string
-) =>
-  errorResponse({
+  message: string,
+  headers?: Record<string, string>
+) => {
+  const response = errorResponse({
     ...configError(message),
     code,
     status,
     type: code === 'permission_denied' ? 'permission_error' : 'invalid_request_error'
   })
 
+  for (const [name, value] of Object.entries(headers ?? {})) response.headers.set(name, value)
+
+  return response
+}
+
+/** Fields the dedicated logic owns: `options` can never copy them raw. */
+const NEVER_RAW = ['model', 'stream', 'stream_options', 'messages', 'max_tokens', 'temperature']
+
+const isJson = (request: Request) => /^application\/json\s*(;|$)/i.test(request.headers.get('content-type') ?? '')
+
 function allowedParams(body: Record<string, unknown>, allow: AllowRule): ChatParams {
   // [1] Messages always; temperature and a clamped max_tokens by default
-  const cap = allow.maxTokensCap ?? DEFAULT_MAX_TOKENS_CAP
+  const cap =
+    Number.isInteger(allow.maxTokensCap) && allow.maxTokensCap! > 0 ? allow.maxTokensCap! : DEFAULT_MAX_TOKENS_CAP
+
   const params: Record<string, unknown> = { messages: body.messages }
 
   if (typeof body.temperature === 'number') params.temperature = body.temperature
@@ -71,7 +84,7 @@ function allowedParams(body: Record<string, unknown>, allow: AllowRule): ChatPar
 
   // [3] Further options only by name
   for (const name of allow.options ?? []) {
-    if (name in body && !['model', 'stream', 'stream_options', 'messages'].includes(name)) params[name] = body[name]
+    if (Object.hasOwn(body, name) && !NEVER_RAW.includes(name)) params[name] = body[name]
   }
 
   return params as unknown as ChatParams
@@ -89,8 +102,17 @@ export function createForwardHandler(options: ForwardHandlerOptions): (request: 
 
   return async request => {
     // [1] Only POST, and only for callers the app allows
-    if (request.method !== 'POST') return refuse('method_not_allowed', 405, 'Use POST.')
-    const verdict = await options.authorize(request)
+    if (request.method !== 'POST') return refuse('method_not_allowed', 405, 'Use POST.', { allow: 'POST' })
+    if (!isJson(request)) return refuse('invalid_request', 415, 'The content-type must be application/json.')
+
+    // A throwing authorize is a refusal, never a crash and never a way through
+    let verdict: boolean | Response
+
+    try {
+      verdict = await options.authorize(request)
+    } catch {
+      verdict = false
+    }
 
     if (verdict instanceof Response) return verdict
     if (verdict !== true) return refuse('permission_denied', 403, 'Not allowed to use this route.')

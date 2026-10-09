@@ -177,3 +177,104 @@ describeFake('forwarding allowlist', () => {
     expect(engine.fake!.requests).toHaveLength(1)
   })
 })
+
+describeFake('forwarding handler hardening', () => {
+  const hi = [{ role: 'user', content: 'hi' }]
+
+  const sentTo = async (engine: ReturnType<typeof setup>['engine']) =>
+    (await engine.fake!.requests.at(-1)!.json()) as Record<string, unknown>
+
+  it.each([
+    [
+      'a throwing authorize',
+      () => {
+        throw new Error('boom')
+      }
+    ],
+    ['a rejecting authorize', () => Promise.reject(new Error('boom'))],
+    ['a truthy non-true verdict', () => 'yes']
+  ])('answers 403 permission_denied for %s and never reaches the engine', async (_name, authorize) => {
+    const { engine, handler } = setup({ authorize: authorize as never })
+
+    const response = await handler(post({ messages: hi }))
+
+    expect(response.status).toBe(403)
+    expect(((await response.json()) as { error: { code: string } }).error.code).toBe('permission_denied')
+    expect(engine.fake!.requests).toHaveLength(0)
+  })
+
+  it('keeps the token cap even when options lists max_tokens or temperature', async () => {
+    const { engine, handler } = setup({ allow: { options: ['max_tokens', 'temperature'] } })
+
+    await handler(post({ max_tokens: 1_000_000, temperature: 'hot', messages: hi }))
+    const sent = await sentTo(engine)
+
+    expect(sent.max_tokens).toBe(4096)
+    expect(sent).not.toHaveProperty('temperature')
+  })
+
+  it('refuses a body that is not declared application/json with 415', async () => {
+    const { engine, handler } = setup()
+
+    const plain = new Request('http://app.test/api/meridian/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ messages: hi })
+    })
+
+    const charset = new Request('http://app.test/api/meridian/chat', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({ messages: hi })
+    })
+
+    const refused = await handler(plain)
+    const accepted = await handler(charset)
+
+    expect(refused.status).toBe(415)
+    expect(((await refused.json()) as { error: { code: string } }).error.code).toBe('invalid_request')
+    expect(accepted.status).toBe(200)
+    expect(engine.fake!.requests).toHaveLength(1)
+  })
+
+  it('never copies inherited keys named in options', async () => {
+    const { engine, handler } = setup({ allow: { options: ['constructor', 'toString', '__proto__'] } })
+
+    await handler(post('{"messages":[{"role":"user","content":"hi"}],"__proto__":{"x":1}}'))
+    const sent = await sentTo(engine)
+
+    expect(Object.keys(sent).sort()).toEqual(['max_tokens', 'messages', 'stream'])
+  })
+
+  it('falls back to 4096 for an invalid maxTokensCap', async () => {
+    for (const bad of [0, -5, 1.5, Number.NaN, '10' as never]) {
+      const { engine, handler } = setup({ allow: { maxTokensCap: bad } })
+
+      await handler(post({ max_tokens: 1_000_000, messages: hi }))
+
+      expect((await sentTo(engine)).max_tokens).toBe(4096)
+    }
+  })
+
+  it('normalises negative, fractional and string max_tokens', async () => {
+    const { engine, handler } = setup()
+
+    const run = async (max_tokens: unknown) => {
+      await handler(post({ max_tokens, messages: hi }))
+
+      return (await sentTo(engine)).max_tokens
+    }
+
+    expect(await run(-7)).toBe(1)
+    expect(await run(2.7)).toBe(2)
+    expect(await run('50')).toBe(4096)
+  })
+
+  it('sends Allow: POST with the 405', async () => {
+    const { handler } = setup()
+
+    const response = await handler(new Request('http://app.test/api/meridian/chat'))
+
+    expect(response.headers.get('allow')).toBe('POST')
+  })
+})
