@@ -125,9 +125,7 @@ export function parseEnvelope(text: string): EngineEnvelope | null {
     const value = JSON.parse(text) as { error?: { code?: unknown; message?: unknown; type?: unknown } }
     const error = value?.error
 
-    return error && typeof error.code === 'string' && typeof error.message === 'string'
-      ? (value as EngineEnvelope)
-      : null
+    return typeof error?.code === 'string' && typeof error.message === 'string' ? (value as EngineEnvelope) : null
   } catch {
     return null
   }
@@ -152,10 +150,17 @@ export function errorFromEnvelope(envelope: EngineEnvelope, status?: number): Me
   }
 }
 
-export async function errorFromResponse(response: Response): Promise<MeridianError> {
+export async function errorFromResponse(response: Response, aborted?: () => boolean): Promise<MeridianError> {
   // [1] Read the body once; a body that cannot be read counts as empty
   const headerId = response.headers.get('x-request-id') ?? undefined
-  const text = await response.text().catch(() => '')
+  let text = ''
+
+  try {
+    text = await response.text()
+  } catch {
+    if (aborted?.()) return clientError('aborted', 'The request was aborted.')
+  }
+
   const envelope = parseEnvelope(text)
 
   // [2] Meridian's own envelope

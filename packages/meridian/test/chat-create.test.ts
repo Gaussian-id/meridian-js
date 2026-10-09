@@ -100,6 +100,22 @@ describeFake('chat.create against scripted failures', () => {
   })
 })
 
+describeFake('chat.create when the body is cut', () => {
+  it('returns aborted when the caller aborts while the body is being read', async () => {
+    const engine = testEngine()
+
+    engine.fake!.next({ headers: { 'content-type': 'application/json' }, hang: true })
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
+    const controller = new AbortController()
+
+    setTimeout(() => controller.abort(), 20)
+    const { data, error } = await meridian.chat.create({ messages }, { signal: controller.signal })
+
+    expect(data).toBeNull()
+    expect(error).toMatchObject({ code: 'aborted', status: 0, retryable: false })
+  })
+})
+
 describe('createClient refusals', () => {
   afterEach(() => vi.unstubAllGlobals())
 
@@ -119,9 +135,10 @@ describe('createClient refusals', () => {
     vi.stubGlobal('navigator', { product: 'ReactNative' })
     const engine = testEngine()
 
-    const { error } = await createClient(engine.publicUrl, engine.projectKey).models.list()
+    const { error } = await createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch }).models.list()
 
     expect(error?.message).toContain('createBrowserClient')
+    expect(engine.fake?.requests ?? []).toHaveLength(0)
   })
 
   it('refuses an empty key or a URL that is not http(s), without sending anything', async () => {
@@ -133,5 +150,16 @@ describe('createClient refusals', () => {
     expect(noKey.error?.code).toBe('invalid_request')
     expect(badUrl.error?.code).toBe('invalid_request')
     expect(engine.fake?.requests ?? []).toHaveLength(0)
+  })
+
+  it('returns a configuration error, not a throw, when no fetch exists', async () => {
+    vi.stubGlobal('fetch', undefined)
+    const engine = testEngine()
+
+    const meridian = createClient(engine.publicUrl, engine.projectKey)
+    const { error } = await meridian.models.list()
+
+    expect(error).toMatchObject({ code: 'invalid_request', type: 'client_error', status: 0, retryable: false })
+    expect(error?.message).toContain('fetch')
   })
 })

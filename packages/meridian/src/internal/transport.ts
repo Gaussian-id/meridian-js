@@ -1,4 +1,4 @@
-import { clientError, errorFromResponse, fail, ok, type MeridianError, type Result } from './errors'
+import { clientError, configError, errorFromResponse, fail, ok, type MeridianError, type Result } from './errors'
 
 export interface TransportConfig {
   baseUrl: string
@@ -37,7 +37,6 @@ type Attempt =
   { kind: 'response'; opened: Opened } | { kind: 'error'; error: MeridianError; retryAfterMs: number | null }
 
 export function createTransport(config: TransportConfig): Transport {
-  const send = config.fetch ?? globalThis.fetch.bind(globalThis)
   const timeout = config.timeout ?? DEFAULT_TIMEOUT_MS
   const base = config.baseUrl.replace(/\/+$/, '')
 
@@ -51,6 +50,17 @@ export function createTransport(config: TransportConfig): Transport {
   }
 
   async function attempt(call: Call): Promise<Attempt> {
+    // [0] Resolve fetch at call time, so a missing fetch is an error value and never a throw
+    const send = config.fetch ?? (typeof globalThis.fetch === 'function' ? globalThis.fetch.bind(globalThis) : null)
+
+    if (!send) {
+      return {
+        kind: 'error',
+        error: configError('No fetch is available in this runtime. Pass one with the `fetch` option.'),
+        retryAfterMs: null
+      }
+    }
+
     // [1] A deadline for this attempt, joined to the caller's signal
     const controller = new AbortController()
     let timedOut = false
@@ -88,7 +98,7 @@ export function createTransport(config: TransportConfig): Transport {
       clearTimeout(timer)
 
       if (response.ok) return { kind: 'response', opened: { response, release, abort: () => controller.abort() } }
-      const error = await errorFromResponse(response)
+      const error = await errorFromResponse(response, () => call.signal?.aborted === true || controller.signal.aborted)
 
       release()
 
@@ -123,7 +133,19 @@ export function createTransport(config: TransportConfig): Transport {
       }
 
       // [2] Parse the body; a body that is not JSON is a transport failure
-      const text = await response.text().catch(() => '')
+      let text: string
+
+      try {
+        text = await response.text()
+      } catch {
+        release()
+
+        return fail(
+          call.signal?.aborted
+            ? clientError('aborted', 'The request was aborted.')
+            : clientError('network_error', 'The connection dropped while reading the response body.', response.status)
+        )
+      }
 
       release()
 
