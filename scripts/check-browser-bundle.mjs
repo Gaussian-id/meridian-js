@@ -38,3 +38,15 @@ for (const [format, ext] of [
 }
 
 console.log("Browser bundle holds no server or admin client.");
+
+// [4] meridian-next's browser entry must import only meridian/browser, never the core root
+for (const [file, pattern] of [
+  ["browser.js", /from\s*["']meridian["']/],
+  ["browser.cjs", /require\(["']meridian["']\)/],
+]) {
+  const code = readFileSync(`packages/meridian-next/dist/${file}`, "utf8");
+
+  if (pattern.test(code)) fail(`meridian-next/${file} imports the server-side core.`);
+}
+
+console.log("meridian-next browser entry imports only meridian/browser.");

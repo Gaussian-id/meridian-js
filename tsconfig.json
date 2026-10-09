@@ -5,7 +5,9 @@
     "baseUrl": ".",
     "paths": {
       "meridian": ["packages/meridian/src/index.ts"],
-      "meridian/*": ["packages/meridian/src/*.ts"]
+      "meridian/*": ["packages/meridian/src/*.ts"],
+      "meridian-next": ["packages/meridian-next/src/index.ts"],
+      "meridian-next/*": ["packages/meridian-next/src/*.ts"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"],
