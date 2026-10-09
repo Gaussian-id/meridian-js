@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "meridian": ["packages/meridian/src/index.ts"],
+      "meridian/*": ["packages/meridian/src/*.ts"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"],
+  "exclude": ["**/dist/**", "packages/*/test/fixtures/**"]
+}

@@ -1,0 +1,11 @@
+node_modules
+dist
+coverage
+.next
+.nuxt
+.output
+*.log
+.env
+.env.*
+.omc/
+.superpowers/

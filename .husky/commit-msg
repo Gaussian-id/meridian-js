@@ -1,0 +1,66 @@
+# Read the commit message from the file
+commit_message=$(cat "$1")
+
+# Define the allowed prefixes
+allowed_prefixes="^(feat|fix|perf):"
+
+echo "🔍 Hmmm, let's see..."
+
+# Check if it's a merge commit (starts with "Merge")
+if echo "$commit_message" | grep -qE "^Merge"; then
+    echo "🔀 Merge commit detected, skipping format validation..."
+else
+    # Check if the commit message starts with one of the allowed prefixes
+    if ! echo "$commit_message" | grep -qE "$allowed_prefixes"; then
+        echo "❌ Invalid commit message format!"
+        echo ""
+        echo "Commit message must start with one of the following prefixes:"
+        echo "  • feat:     for new features"
+        echo "  • fix:      for bug fixes"
+        echo "  • perf:     for breaking changes"
+        echo ""
+        echo "Example: feat: add user authentication"
+        echo "Example: fix: resolve login validation issue"
+        echo "Example: perf: just destroyed the app in prod"
+        echo ""
+        echo "Your commit message: $commit_message"
+        exit 1
+    fi
+fi
+
+echo "✅ Commit message format is valid!"
+
+echo "🔍 Running linting checks..."
+
+npm run lint
+
+if [ $? -ne 0 ]; then
+    echo "⚠️ Linting failed! Trying 2 fix"
+    echo "🛠️ Running linting fix..."
+
+    npm run lint:fix
+
+    if [ $? -ne 0 ]; then
+        echo "❌ Fixing the lint failed! Fix it yourself. I'm retiring"
+        exit 1
+    fi
+
+    exit 1
+fi
+
+if echo "$commit_message" | grep -qE "^Merge"; then
+    echo "🔀 Merge commit detected, skipping build..."
+    exit 0
+else
+    echo "👷🏻‍♂️ Building the app..."
+
+    npm run build
+fi
+
+if [ $? -ne 0 ]; then
+    echo "💀 Crashed! Go check the app."
+
+    exit 1
+fi
+
+echo "✅ All checks passed!"

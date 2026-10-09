@@ -1,0 +1,31 @@
+{
+  "arrowParens": "avoid",
+  "bracketSpacing": true,
+  "htmlWhitespaceSensitivity": "css",
+  "insertPragma": false,
+  "bracketSameLine": false,
+  "endOfLine": "auto",
+  "jsxSingleQuote": true,
+  "printWidth": 120,
+  "proseWrap": "preserve",
+  "quoteProps": "as-needed",
+  "requirePragma": false,
+  "semi": false,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "trailingComma": "none",
+  "useTabs": false,
+  "overrides": [
+    {
+      "files": "scripts/**/*.mjs",
+      "options": {
+        "arrowParens": "always",
+        "jsxSingleQuote": false,
+        "printWidth": 100,
+        "semi": true,
+        "singleQuote": false,
+        "trailingComma": "all"
+      }
+    }
+  ]
+}

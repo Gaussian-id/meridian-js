@@ -1,0 +1,51 @@
+{
+  "name": "meridian-js",
+  "private": true,
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.30.3",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint",
+    "lint:fix": "eslint --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:contract": "node scripts/contract.mjs",
+    "spec:pin": "node scripts/pin-spec.mjs",
+    "generate": "node scripts/generate-types.mjs",
+    "check:drift": "node scripts/generate-types.mjs --check",
+    "build": "pnpm -r --filter \"./packages/*\" run build",
+    "check:bundle": "node scripts/check-browser-bundle.mjs",
+    "smoke:runtime": "node scripts/runtime-smoke.mjs",
+    "check:frameworks": "node scripts/check-framework-builds.mjs",
+    "gate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:drift && pnpm build && pnpm check:bundle && pnpm smoke:runtime",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,mjs}": [
+      "prettier --write",
+      "eslint --fix --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{css,json,mdx}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2",
+    "@types/node": "^20",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.8",
+    "openapi-typescript": "^7",
+    "prettier": "^3.8.4",
+    "tsup": "^8",
+    "typescript": "^5",
+    "vitest": "^4.1.9"
+  }
+}

@@ -1,0 +1,5 @@
+# Format the staged files (lint-staged in package.json): Prettier, eslint --fix, Prettier again.
+# The commit-msg hook then validates the message, lints the whole project and builds.
+echo "💬 Checking yo files b4 being pushed 2 GH"
+
+npx lint-staged
