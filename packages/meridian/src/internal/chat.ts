@@ -1,6 +1,7 @@
 import type { ChatApi, ChatCompletion, ChatParams, RequestOptions } from '../types'
 
-import { configError, fail } from './errors'
+import { ok } from './errors'
+import { createChatStream } from './stream'
 import type { Transport } from './transport'
 
 /** A fresh key per logical call, so a retry before the first chunk can never run the request twice (chat.rs R19). */
@@ -27,6 +28,18 @@ export function createChatApi(transport: Transport, path: string): ChatApi {
         signal: options.signal,
         headers: idempotency(options)
       }),
-    stream: async () => fail(configError('chat.stream() is not available yet.'))
+    stream: async (params: ChatParams, options: RequestOptions = {}) => {
+      // [1] Ask for the usage chunk so stream.usage is filled (encode.rs: usage only on include_usage)
+      const opened = await transport.open({
+        method: 'POST',
+        path,
+        body: { ...params, stream: true, stream_options: { include_usage: true } },
+        signal: options.signal,
+        headers: idempotency(options)
+      })
+
+      // [2] A refusal before any byte is an error value; otherwise the stream
+      return opened.error ? opened : ok(createChatStream(opened.data, options.signal))
+    }
   }
 }
