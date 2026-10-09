@@ -9,3 +9,4 @@ coverage
 .env.*
 .omc/
 .superpowers/
+next-env.d.ts
