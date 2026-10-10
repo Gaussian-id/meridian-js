@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 import { createForwardHandler } from 'meridian/server'
@@ -24,6 +24,41 @@ describeEngine('meridian-expo', () => {
     })
 
     expect((await stream!.text()).data!.length).toBeGreaterThan(0)
+  })
+
+  it('closes the engine stream behind the backend when the app cancels its stream', async () => {
+    let closed = false
+
+    const hanging = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      init?.signal?.addEventListener('abort', () => (closed = true))
+
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"choices":[{"index":0,"delta":{"content":"hi"}}]}\n\n'))
+        },
+        cancel() {
+          closed = true
+        }
+      })
+
+      return new Response(body, { headers: { 'content-type': 'text/event-stream' } })
+    }) as typeof fetch
+
+    const client = createClient('http://engine.test', 'gmr_x', { fetch: hanging })
+    const handler = createForwardHandler({ client, authorize: () => true })
+
+    const backend = ((input: RequestInfo | URL, init?: RequestInit) =>
+      handler(new Request(input, init))) as typeof fetch
+
+    const meridian = createBrowserClient({ route: 'https://app.example/api/meridian/chat', fetch: backend })
+    const { data: stream } = await meridian.chat.stream({ messages: [{ role: 'user', content: 'hi' }] })
+
+    for await (const piece of stream!) {
+      expect(piece.delta).toBe('hi')
+      break
+    }
+
+    await vi.waitFor(() => expect(closed).toBe(true))
   })
 
   it('refuses a relative route as an error value', async () => {

@@ -13,6 +13,14 @@ function newKey(): string {
     : `mrd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 }
 
+/**
+ * The engine's rule for an idempotency key (meridian-domain ids.rs): 1-255 characters, each visible ASCII 0x21-0x7E.
+ * The one rule for the caller's key and a browser's key at the forwarding route.
+ */
+export function validIdempotencyKey(value: unknown): value is string {
+  return typeof value === 'string' && /^[!-~]{1,255}$/.test(value)
+}
+
 /** Chat completions are the only route that honours `idempotency-key`; admin calls never send it. */
 export function idempotency(options: RequestOptions): Record<string, string> {
   return { 'idempotency-key': options.idempotencyKey ?? newKey() }

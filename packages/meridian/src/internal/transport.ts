@@ -1,4 +1,13 @@
-import { clientError, configError, errorFromResponse, fail, ok, type MeridianError, type Result } from './errors'
+import {
+  clientError,
+  configError,
+  errorFromResponse,
+  fail,
+  ok,
+  validRetryAfter,
+  type MeridianError,
+  type Result
+} from './errors'
 
 export interface TransportConfig {
   baseUrl: string
@@ -150,7 +159,14 @@ export function createTransport(config: TransportConfig): Transport {
 
       release()
 
-      return { kind: 'error', error, retryAfterMs: retryAfterMs(response.headers.get('retry-after')) }
+      const retryAfter = response.headers.get('retry-after')
+      const valid = validRetryAfter(retryAfter)
+
+      return {
+        kind: 'error',
+        error: valid ? { ...error, retryAfter: valid } : error,
+        retryAfterMs: retryAfterMs(retryAfter)
+      }
     } catch {
       // [4] No response: aborted by the caller, timed out, or the network failed
       release()

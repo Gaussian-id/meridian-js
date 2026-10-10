@@ -79,4 +79,43 @@ describeEngine('meridian-nuxt', () => {
     expect(JSON.parse(text).error.code).toBe('service_unavailable')
     expect(text).not.toMatch(/key|MERIDIAN|NUXT_|runtimeConfig/i)
   })
+
+  it('closes the engine stream when the browser goes away mid-stream', async () => {
+    let closed = false
+
+    const hanging = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      init?.signal?.addEventListener('abort', () => (closed = true))
+
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('data: {"choices":[]}\n\n'))
+        },
+        cancel() {
+          closed = true
+        }
+      })
+
+      return new Response(body, { headers: { 'content-type': 'text/event-stream' } })
+    }) as typeof fetch
+
+    const client = createClient('http://engine.test', 'gmr_x', { fetch: hanging })
+
+    const web = toWebHandler(
+      createApp().use('/api/meridian/chat', defineMeridianHandler({ client, authorize: () => true }))
+    )
+
+    const response = await web(
+      new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ stream: true, messages: [{ role: 'user', content: 'hi' }] })
+      })
+    )
+
+    const reader = response.body!.getReader()
+
+    await reader.read()
+    await reader.cancel()
+    await vi.waitFor(() => expect(closed).toBe(true))
+  })
 })

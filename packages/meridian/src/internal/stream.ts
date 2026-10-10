@@ -1,6 +1,15 @@
 import type { ChatChunk, ChatChunkRaw, ChatStream, Usage } from '../types'
 
-import { clientError, errorFromEnvelope, fail, ok, parseEnvelope, type MeridianError, type Result } from './errors'
+import {
+  clientError,
+  errorFromEnvelope,
+  fail,
+  ok,
+  parseEnvelope,
+  validRequestId,
+  type MeridianError,
+  type Result
+} from './errors'
 import type { Opened } from './transport'
 
 /** The data of one SSE block, or null when it has none. Comment lines and other fields are ignored. */
@@ -94,7 +103,7 @@ class ChatStreamImpl implements ChatStream {
   }
 
   get requestId() {
-    return this.opened.response.headers.get('x-request-id')
+    return validRequestId(this.opened.response.headers.get('x-request-id')) ?? null
   }
 
   cancel() {
