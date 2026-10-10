@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { createClient } from 'meridian'
+import { createClient } from '@gaussian/meridian'
 
 import { describeEngine, describeFake, testEngine } from './support/engine'
 import { engineError } from './support/fake-engine'

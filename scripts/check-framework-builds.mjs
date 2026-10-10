@@ -30,7 +30,7 @@ const filesUnder = (dir) =>
   });
 
 // A string literal from packages/meridian-nuxt/src/server.ts that survives minification.
-const NUXT_SERVER_MARKER = "meridian-nuxt: set runtimeConfig.meridian.url";
+const NUXT_SERVER_MARKER = "@gaussian/meridian-nuxt: set runtimeConfig.meridian.url";
 
 /** Client files of a built Nuxt fixture that hold the server client; null when there was nothing to scan. */
 const nuxtClientLeaks = (cwd) => {
@@ -79,7 +79,9 @@ if (leakBuild.status === 0) {
   if (!found?.length) problems.push(`${nuxtLeak}: leak built and was not detected`);
   else console.log(`Nuxt leak fixture detected: marker found in ${found.length} client file(s).`);
 } else if (
-  /server-only|meridian-nuxt\/server|#imports|useMeridianServerClient/.test(leakBuild.output)
+  /server-only|@gaussian\/meridian-nuxt\/server|#imports|useMeridianServerClient/.test(
+    leakBuild.output,
+  )
 ) {
   console.log("Nuxt leak fixture detected: build failed on the server import.");
 } else {
@@ -90,14 +92,14 @@ if (leakBuild.status === 0) {
 // [5] The Expo package must type-check against the real expo/fetch types.
 const expoStatus = spawnSync(
   "pnpm",
-  ["--filter", "meridian-expo", "exec", "tsc", "--noEmit", "-p", "tsconfig.json"],
+  ["--filter", "@gaussian/meridian-expo", "exec", "tsc", "--noEmit", "-p", "tsconfig.json"],
   {
     stdio: "inherit",
     shell: process.platform === "win32",
   },
 ).status;
 
-if (expoStatus !== 0) problems.push("meridian-expo: type-check failed");
+if (expoStatus !== 0) problems.push("@gaussian/meridian-expo: type-check failed");
 
 if (broken.length || leaked.length || problems.length) {
   console.error(

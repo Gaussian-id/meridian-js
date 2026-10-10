@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { ENGINE_API_VERSION } from 'meridian'
+import { ENGINE_API_VERSION } from '@gaussian/meridian'
 
 import config from '../../../vitest.config'
 

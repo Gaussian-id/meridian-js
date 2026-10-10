@@ -2,8 +2,8 @@
 
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import { createClient } from 'meridian'
-import { createAdminClient } from 'meridian/admin'
+import { createClient } from '@gaussian/meridian'
+import { createAdminClient } from '@gaussian/meridian/admin'
 
 import { retryAfterMs } from '../src/internal/transport'
 import { describeFake, testEngine } from './support/engine'

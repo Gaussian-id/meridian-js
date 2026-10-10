@@ -13,18 +13,18 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^server-only$/, replacement: next('test/support/server-only-stub.ts') },
-      { find: /^meridian-next\/pages$/, replacement: next('src/pages.ts') },
-      { find: /^meridian-next\/browser$/, replacement: next('src/browser.ts') },
-      { find: /^meridian-next$/, replacement: next('src/index.ts') },
+      { find: /^@gaussian\/meridian-next\/pages$/, replacement: next('src/pages.ts') },
+      { find: /^@gaussian\/meridian-next\/browser$/, replacement: next('src/browser.ts') },
+      { find: /^@gaussian\/meridian-next$/, replacement: next('src/index.ts') },
       { find: /^#imports$/, replacement: nuxt('test/support/imports-stub.ts') },
-      { find: /^meridian-nuxt\/server$/, replacement: nuxt('src/server.ts') },
-      { find: /^meridian-nuxt\/composables$/, replacement: nuxt('src/composables.ts') },
+      { find: /^@gaussian\/meridian-nuxt\/server$/, replacement: nuxt('src/server.ts') },
+      { find: /^@gaussian\/meridian-nuxt\/composables$/, replacement: nuxt('src/composables.ts') },
       { find: /^expo\/fetch$/, replacement: expo('test/support/expo-fetch-stub.ts') },
-      { find: /^meridian-expo$/, replacement: expo('src/index.ts') },
-      { find: /^meridian\/browser$/, replacement: src('browser.ts') },
-      { find: /^meridian\/admin$/, replacement: src('admin.ts') },
-      { find: /^meridian\/server$/, replacement: src('server.ts') },
-      { find: /^meridian$/, replacement: src('index.ts') }
+      { find: /^@gaussian\/meridian-expo$/, replacement: expo('src/index.ts') },
+      { find: /^@gaussian\/meridian\/browser$/, replacement: src('browser.ts') },
+      { find: /^@gaussian\/meridian\/admin$/, replacement: src('admin.ts') },
+      { find: /^@gaussian\/meridian\/server$/, replacement: src('server.ts') },
+      { find: /^@gaussian\/meridian$/, replacement: src('index.ts') }
     ]
   },
   test: {

@@ -1,5 +1,5 @@
 {
-  "name": "meridian-expo",
+  "name": "@gaussian/meridian-expo",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -24,7 +24,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "meridian": "workspace:*"
+    "@gaussian/meridian": "workspace:*"
   },
   "peerDependencies": {
     "expo": ">=52"

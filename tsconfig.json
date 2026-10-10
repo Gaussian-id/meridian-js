@@ -5,13 +5,13 @@
     "allowImportingTsExtensions": true,
     "baseUrl": ".",
     "paths": {
-      "meridian": ["packages/meridian/src/index.ts"],
-      "meridian/*": ["packages/meridian/src/*.ts"],
-      "meridian-expo": ["packages/meridian-expo/src/index.ts"],
+      "@gaussian/meridian": ["packages/meridian/src/index.ts"],
+      "@gaussian/meridian/*": ["packages/meridian/src/*.ts"],
+      "@gaussian/meridian-expo": ["packages/meridian-expo/src/index.ts"],
       "expo/fetch": ["packages/meridian-expo/test/support/expo-fetch-stub.ts"],
-      "meridian-next": ["packages/meridian-next/src/index.ts"],
-      "meridian-next/*": ["packages/meridian-next/src/*.ts"],
-      "meridian-nuxt/*": ["packages/meridian-nuxt/src/*.ts"],
+      "@gaussian/meridian-next": ["packages/meridian-next/src/index.ts"],
+      "@gaussian/meridian-next/*": ["packages/meridian-next/src/*.ts"],
+      "@gaussian/meridian-nuxt/*": ["packages/meridian-nuxt/src/*.ts"],
       "#imports": ["packages/meridian-nuxt/test/support/imports-stub.ts"]
     }
   },

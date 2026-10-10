@@ -1,3 +1,3 @@
-import { createPagesHandler } from 'meridian-next/pages'
+import { createPagesHandler } from '@gaussian/meridian-next/pages'
 
 export default createPagesHandler({ authorize: () => true })

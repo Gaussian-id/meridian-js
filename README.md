@@ -9,7 +9,7 @@
 
 The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.
 
-> **Status:** private and unpublished. Every package is `"private": true` at version `0.0.0`; the names (`meridian`, `meridian-next`, `meridian-nuxt`, `meridian-expo`) are working names (O47), so none can be installed from a registry yet. Runtime floor: Node 18 (`engines.node >= 18`). The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
+> **Status:** private and unpublished. Every package is `"private": true` at version `0.0.0`; the package names are `@gaussian/meridian`, `@gaussian/meridian-next`, `@gaussian/meridian-nuxt` and `@gaussian/meridian-expo` (owner decision, 10 Oct), but none can be installed from a registry yet (O47). Runtime floor: Node 18 (`engines.node >= 18`). The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
 
 ## Contents
 
@@ -28,19 +28,19 @@ The official TypeScript SDK for Gauss Meridian: one API for many AI models, rout
 
 ## Packages
 
-| Package         | Entry points                                                                  | Holds a key                      |
-| --------------- | ----------------------------------------------------------------------------- | -------------------------------- |
-| `meridian`      | `meridian`, `meridian/browser`, `meridian/server`, `meridian/admin`           | depends on the entry (see below) |
-| `meridian-next` | `meridian-next`, `meridian-next/pages`, `meridian-next/browser`               | server side only                 |
-| `meridian-nuxt` | `meridian-nuxt` (module), `meridian-nuxt/server`, `meridian-nuxt/composables` | server side only                 |
-| `meridian-expo` | `meridian-expo`                                                               | never                            |
+| Package                   | Entry points                                                                                                | Holds a key                      |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| `@gaussian/meridian`      | `@gaussian/meridian`, `@gaussian/meridian/browser`, `@gaussian/meridian/server`, `@gaussian/meridian/admin` | depends on the entry (see below) |
+| `@gaussian/meridian-next` | `@gaussian/meridian-next`, `@gaussian/meridian-next/pages`, `@gaussian/meridian-next/browser`               | server side only                 |
+| `@gaussian/meridian-nuxt` | `@gaussian/meridian-nuxt` (module), `@gaussian/meridian-nuxt/server`, `@gaussian/meridian-nuxt/composables` | server side only                 |
+| `@gaussian/meridian-expo` | `@gaussian/meridian-expo`                                                                                   | never                            |
 
-| Core entry         | Runs in                 | Holds a key  | Main export                                   |
-| ------------------ | ----------------------- | ------------ | --------------------------------------------- |
-| `meridian`         | server code only        | yes (`gmr_`) | `createClient(url, key, options?)`            |
-| `meridian/browser` | the browser             | never        | `createBrowserClient(options?)`               |
-| `meridian/server`  | your app server (route) | no           | `createForwardHandler({ client, authorize })` |
-| `meridian/admin`   | server code only        | yes (`gmi_`) | `createAdminClient(adminUrl, key, options?)`  |
+| Core entry                   | Runs in                 | Holds a key  | Main export                                   |
+| ---------------------------- | ----------------------- | ------------ | --------------------------------------------- |
+| `@gaussian/meridian`         | server code only        | yes (`gmr_`) | `createClient(url, key, options?)`            |
+| `@gaussian/meridian/browser` | the browser             | never        | `createBrowserClient(options?)`               |
+| `@gaussian/meridian/server`  | your app server (route) | no           | `createForwardHandler({ client, authorize })` |
+| `@gaussian/meridian/admin`   | server code only        | yes (`gmi_`) | `createAdminClient(adminUrl, key, options?)`  |
 
 Keys never go in the browser. `createClient` and `createAdminClient` refuse to run in a browser or React Native.
 
@@ -61,21 +61,21 @@ Then point your app at the built package folder (the packages ship `dist` only, 
 pnpm add link:/path/to/meridian-js/packages/meridian
 ```
 
-After the first release the package names will be:
+After the first release the install commands will be:
 
 ```bash
-npm install meridian
-pnpm add meridian
-yarn add meridian
-bun add meridian
+npm install @gaussian/meridian
+pnpm add @gaussian/meridian
+yarn add @gaussian/meridian
+bun add @gaussian/meridian
 ```
 
 ```ts
 // Deno
-import { createClient } from 'npm:meridian'
+import { createClient } from 'npm:@gaussian/meridian'
 ```
 
-The framework packages (`meridian-next`, `meridian-nuxt`, `meridian-expo`) depend on `meridian` and install the same way.
+The framework packages (`@gaussian/meridian-next`, `@gaussian/meridian-nuxt`, `@gaussian/meridian-expo`) depend on `@gaussian/meridian` and install the same way.
 
 ## Quick start
 
@@ -84,7 +84,7 @@ Set `MERIDIAN_KEY` (a `gmr_` project key) in your server environment. Never writ
 A buffered chat call:
 
 ```ts
-import { createClient } from 'meridian'
+import { createClient } from '@gaussian/meridian'
 
 const meridian = createClient('https://YOUR-MERIDIAN-URL', process.env.MERIDIAN_KEY!)
 
@@ -128,8 +128,8 @@ A browser or mobile app never holds a key. It calls a route on your own backend,
 
 ```ts
 // Your server: the route
-import { createClient } from 'meridian'
-import { createForwardHandler } from 'meridian/server'
+import { createClient } from '@gaussian/meridian'
+import { createForwardHandler } from '@gaussian/meridian/server'
 
 const client = createClient('https://YOUR-MERIDIAN-URL', process.env.MERIDIAN_KEY!)
 
@@ -141,7 +141,7 @@ export const POST = createForwardHandler({
 
 ```ts
 // Your browser code: the client
-import { createBrowserClient } from 'meridian/browser'
+import { createBrowserClient } from '@gaussian/meridian/browser'
 
 const meridian = createBrowserClient() // calls /api/meridian/chat
 const { data: stream, error } = await meridian.chat.stream({ messages: [{ role: 'user', content: 'hi' }] })
@@ -152,53 +152,53 @@ if (!error) console.log((await stream.text()).data)
 
 The framework packages preset both sides:
 
-| Framework | Server route                                                                         | Client                                             |
-| --------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- |
-| Next.js   | `createRouteHandler` (`meridian-next`), `createPagesHandler` (`meridian-next/pages`) | `createBrowserClient()` (`meridian-next/browser`)  |
-| Nuxt      | `defineMeridianHandler` (`meridian-nuxt/server`)                                     | `useMeridian()` (auto-imported by the module)      |
-| Expo      | any `meridian/server` handler on your backend                                        | `createBrowserClient({ route })` (`meridian-expo`) |
+| Framework | Server route                                                                                             | Client                                                       |
+| --------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Next.js   | `createRouteHandler` (`@gaussian/meridian-next`), `createPagesHandler` (`@gaussian/meridian-next/pages`) | `createBrowserClient()` (`@gaussian/meridian-next/browser`)  |
+| Nuxt      | `defineMeridianHandler` (`@gaussian/meridian-nuxt/server`)                                               | `useMeridian()` (auto-imported by the module)                |
+| Expo      | any `@gaussian/meridian/server` handler on your backend                                                  | `createBrowserClient({ route })` (`@gaussian/meridian-expo`) |
 
 **Next.js.** Set `MERIDIAN_URL` and `MERIDIAN_KEY` on the server. The server client is built per request from them.
 
 ```ts
 // app/api/meridian/chat/route.ts (App Router)
-import { createRouteHandler } from 'meridian-next'
+import { createRouteHandler } from '@gaussian/meridian-next'
 
 export const { POST } = createRouteHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
 ```ts
 // pages/api/meridian/chat.ts (Pages Router)
-import { createPagesHandler } from 'meridian-next/pages'
+import { createPagesHandler } from '@gaussian/meridian-next/pages'
 
 export default createPagesHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
-In components, use `createBrowserClient()` from `meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` (from `meridian-next`) gives a server client for route handlers and server actions.
+In components, use `createBrowserClient()` from `@gaussian/meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` (from `@gaussian/meridian-next`) gives a server client for route handlers and server actions.
 
 **Nuxt.** Add the module and set the private runtime config `NUXT_MERIDIAN_URL` and `NUXT_MERIDIAN_KEY` (`runtimeConfig.meridian.url` and `.key`). They are never sent to the browser.
 
 ```ts
 // nuxt.config.ts
-export default defineNuxtConfig({ modules: ['meridian-nuxt'] })
+export default defineNuxtConfig({ modules: ['@gaussian/meridian-nuxt'] })
 
 // server/api/meridian/chat.post.ts
-import { defineMeridianHandler } from 'meridian-nuxt/server'
+import { defineMeridianHandler } from '@gaussian/meridian-nuxt/server'
 
 export default defineMeridianHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
-In components, call `useMeridian()`; it is preset to `/api/meridian/chat`. In Nitro server routes, `useMeridianServerClient()` (from `meridian-nuxt/server`) gives a server client built from the runtime config.
+In components, call `useMeridian()`; it is preset to `/api/meridian/chat`. In Nitro server routes, `useMeridianServerClient()` (from `@gaussian/meridian-nuxt/server`) gives a server client built from the runtime config.
 
 **Expo.** A mobile app has no page origin and never holds a key. Pass the **absolute** URL of your backend's forwarding route (a relative one is refused):
 
 ```ts
-import { createBrowserClient } from 'meridian-expo'
+import { createBrowserClient } from '@gaussian/meridian-expo'
 
 const meridian = createBrowserClient({ route: 'https://api.example.com/api/meridian/chat' })
 ```
 
-It streams over Expo's fetch. The backend route is any `meridian/server` forwarding handler.
+It streams over Expo's fetch. The backend route is any `@gaussian/meridian/server` forwarding handler.
 
 ### 3. Direct HTTP API
 
@@ -415,7 +415,7 @@ Your server-side client still sees the real error. Any other engine error passes
 Provisioning with an integrator key (`gmi_`) on the engine's admin listener. Server-only.
 
 ```ts
-import { createAdminClient } from 'meridian/admin'
+import { createAdminClient } from '@gaussian/meridian/admin'
 
 const admin = createAdminClient('https://YOUR-MERIDIAN-ADMIN-URL', process.env.MERIDIAN_ADMIN_KEY!)
 const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_reference: 'acme-1' })
@@ -486,12 +486,12 @@ Forwarding (`allow`): `model` (`true` or a list), `maxTokensCap` (default 4096),
 
 Environment and runtime config:
 
-| Variable                                 | Used by         | Meaning                                                                                      |
-| ---------------------------------------- | --------------- | -------------------------------------------------------------------------------------------- |
-| `MERIDIAN_URL`, `MERIDIAN_KEY`           | `meridian-next` | engine URL and `gmr_` key, read per request by `createServerClient()` and the route handlers |
-| `NUXT_MERIDIAN_URL`, `NUXT_MERIDIAN_KEY` | `meridian-nuxt` | private `runtimeConfig.meridian.url` and `.key`                                              |
+| Variable                                 | Used by                   | Meaning                                                                                      |
+| ---------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
+| `MERIDIAN_URL`, `MERIDIAN_KEY`           | `@gaussian/meridian-next` | engine URL and `gmr_` key, read per request by `createServerClient()` and the route handlers |
+| `NUXT_MERIDIAN_URL`, `NUXT_MERIDIAN_KEY` | `@gaussian/meridian-nuxt` | private `runtimeConfig.meridian.url` and `.key`                                              |
 
-The core package reads no environment variable itself. `ENGINE_API_VERSION` and `ENGINE_SPEC_COMMIT` (exported by `meridian`) name the engine API version and the commit the SDK was generated from.
+The core package reads no environment variable itself. `ENGINE_API_VERSION` and `ENGINE_SPEC_COMMIT` (exported by `@gaussian/meridian`) name the engine API version and the commit the SDK was generated from.
 
 ## Contract run (simulator only)
 

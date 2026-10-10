@@ -1,5 +1,5 @@
 {
-  "name": "meridian-next",
+  "name": "@gaussian/meridian-next",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
@@ -44,7 +44,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "meridian": "workspace:*",
+    "@gaussian/meridian": "workspace:*",
     "server-only": "^0.0.1"
   },
   "peerDependencies": {

@@ -1,7 +1,7 @@
 import 'server-only'
 
-import { createClient, type ClientOptions, type MeridianClient } from 'meridian'
-import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from 'meridian/server'
+import { createClient, type ClientOptions, type MeridianClient } from '@gaussian/meridian'
+import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from '@gaussian/meridian/server'
 
 // Internal: shared by index.ts and pages.ts, not part of the public entry.
 

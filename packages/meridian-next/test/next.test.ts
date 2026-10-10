@@ -3,18 +3,18 @@ import type { AddressInfo } from 'node:net'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createClient } from 'meridian'
+import { createClient } from '@gaussian/meridian'
 
-import { createRouteHandler, createServerClient } from 'meridian-next'
-import { createBrowserClient } from 'meridian-next/browser'
-import { createPagesHandler } from 'meridian-next/pages'
+import { createRouteHandler, createServerClient } from '@gaussian/meridian-next'
+import { createBrowserClient } from '@gaussian/meridian-next/browser'
+import { createPagesHandler } from '@gaussian/meridian-next/pages'
 
 import { describeEngine, describeFake, testEngine } from '../../meridian/test/support/engine'
 
 const messages = [{ role: 'user', content: 'hi' }]
 const json = { 'content-type': 'application/json' }
 
-describeEngine('meridian-next', () => {
+describeEngine('@gaussian/meridian-next', () => {
   afterEach(() => vi.unstubAllEnvs())
 
   it('builds the server client from MERIDIAN_URL and MERIDIAN_KEY', async () => {

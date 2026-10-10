@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 
-import { createClient } from 'meridian'
-import type { ChatParams } from 'meridian'
+import { createClient } from '@gaussian/meridian'
+import type { ChatParams } from '@gaussian/meridian'
 
 import { describeEngine, describeFake, testEngine } from './support/engine'
 import { chunk, envelope, finish, frame, usageChunk } from './support/fake-engine'

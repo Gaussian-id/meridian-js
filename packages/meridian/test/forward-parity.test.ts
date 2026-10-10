@@ -4,8 +4,8 @@
 
 import { describe, expect, it, vi } from 'vitest'
 
-import { createClient } from 'meridian'
-import { createForwardHandler, type ForwardHandlerOptions } from 'meridian/server'
+import { createClient } from '@gaussian/meridian'
+import { createForwardHandler, type ForwardHandlerOptions } from '@gaussian/meridian/server'
 
 import { describeFake, testEngine } from './support/engine'
 import { chunk, envelope, frame } from './support/fake-engine'

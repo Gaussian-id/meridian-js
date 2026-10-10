@@ -5,7 +5,7 @@
     "build": "nuxt build"
   },
   "dependencies": {
-    "meridian-nuxt": "workspace:*",
+    "@gaussian/meridian-nuxt": "workspace:*",
     "nuxt": "^4",
     "vue": "^3",
     "h3": "^1"

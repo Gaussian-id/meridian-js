@@ -1,6 +1,6 @@
 import { describe, expectTypeOf, it } from 'vitest'
 
-import type { ChatChunkRaw, ChatCompletion, ChatMessage, ChatParams, Model } from 'meridian'
+import type { ChatChunkRaw, ChatCompletion, ChatMessage, ChatParams, Model } from '@gaussian/meridian'
 
 import type { components } from '../src/generated/public'
 import type { EngineErrorCode } from '../src/internal/errors'

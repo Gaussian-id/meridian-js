@@ -9,5 +9,5 @@ export default defineConfig({
   clean: true,
   metafile: true,
   target: 'es2022',
-  external: ['meridian', 'server-only', 'next']
+  external: ['@gaussian/meridian', 'server-only', 'next']
 })

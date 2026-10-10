@@ -1,4 +1,9 @@
-import { createBrowserClient, DEFAULT_ROUTE, type BrowserClient, type BrowserClientOptions } from 'meridian/browser'
+import {
+  createBrowserClient,
+  DEFAULT_ROUTE,
+  type BrowserClient,
+  type BrowserClientOptions
+} from '@gaussian/meridian/browser'
 
 /** The browser client for Vue components, preset to the route defineMeridianHandler serves. */
 export function useMeridian(options: BrowserClientOptions = {}): BrowserClient {

@@ -1,5 +1,5 @@
 {
-  "name": "meridian",
+  "name": "@gaussian/meridian",
   "version": "0.0.0",
   "private": true,
   "license": "Apache-2.0",
