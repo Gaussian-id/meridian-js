@@ -1,13 +1,13 @@
-import { describe, expect, it } from 'vitest'
+import { expect, it } from 'vitest'
 
 import { createClient } from 'meridian'
 import { createForwardHandler } from 'meridian/server'
 
 import { createBrowserClient } from 'meridian-expo'
 
-import { testEngine } from '../../meridian/test/support/engine'
+import { describeEngine, testEngine } from '../../meridian/test/support/engine'
 
-describe('meridian-expo', () => {
+describeEngine('meridian-expo', () => {
   it('streams from the app backend', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })

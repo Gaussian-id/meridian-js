@@ -1,98 +1,100 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { Agent as HttpAgent, request as httpRequest } from "node:http";
+import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import { isInside, isLoopbackUrl, paidKeysIn } from "./contract-guard.mjs";
+import { DEFAULT_URLS, refusal, runtimeDir } from "./contract-guard.mjs";
 
-// The contract run must never spend money. It therefore only runs when ALL hold:
-//   - the public and admin URLs are loopback (127.0.0.1, localhost, ::1);
-//   - the env file it checks lives inside the runtime folder the local runtime scripts use
-//     (%LOCALAPPDATA%\Gaussian\MeridianEngine, or ${XDG_STATE_HOME:-~/.local/state}/gaussian/meridian-engine),
-//     so an override cannot point the check at a clean file while the engine runs on another;
-//   - that env file names no non-empty GAUSSMERIDIAN_GEMINI_API_KEY / GAUSSMERIDIAN_OPENROUTER_API_KEY;
-//   - the engine answers /ready.
-// Overrides that break a rule are refused by name; values are never printed.
+// Contract run against the real local engine. It must never spend money, so the guard (contract-guard.mjs) decides
+// first and refuses on a paid provider key (process or any env file), a path outside the runtime folder, a
+// non-loopback URL or a proxy (environment or Windows registry); it never prints a value. The real run is deferred
+// by the owner: this script only refuses, or launches the suite when the guard allows it.
+//   node scripts/contract.mjs
 
-const refuse = (message) => {
-  console.error(message);
-  process.exit(1);
-};
+export const ROOT = fileURLToPath(new URL("..", import.meta.url)).replace(/[\\/]$/, "");
 
-// [1] Locate the runtime folder and env file; refuse overrides that leave the runtime folder.
-const runtimeDir = process.env.LOCALAPPDATA
-  ? join(process.env.LOCALAPPDATA, "Gaussian", "MeridianEngine")
-  : join(
-      process.env.XDG_STATE_HOME ?? join(process.env.HOME ?? "", ".local", "state"),
-      "gaussian",
-      "meridian-engine",
+// node and the installed vitest entry, not pnpm: nothing is installed or resolved (frozen), no registry, update
+// check or other network access (offline), and no .env file is loaded (vite's envDir is off in vitest.config.ts;
+// NODE_OPTIONS, which could add --env-file, is dropped from the child). In contract mode describeFake registers
+// nothing, so a file of fake-only tests is empty: --passWithNoTests lets it be.
+export const COMMAND = [
+  process.execPath,
+  join(ROOT, "node_modules", "vitest", "vitest.mjs"),
+  "run",
+  "--passWithNoTests",
+];
+
+export function readyEndpoint(publicUrl) {
+  return publicUrl.replace(/\/+$/, "") + "/ready";
+}
+
+/** A plain 200 from /ready. A fresh agent (no proxy from the environment) and no redirect, so the answer is the engine's own. */
+export function engineReady(publicUrl) {
+  return new Promise((answer) => {
+    try {
+      const url = new URL(readyEndpoint(publicUrl));
+
+      const [send, Agent] =
+        url.protocol === "https:" ? [httpsRequest, HttpsAgent] : [httpRequest, HttpAgent];
+
+      const request = send(url, { agent: new Agent(), timeout: 5000 }, (response) => {
+        response.resume();
+        answer(response.statusCode === 200);
+      });
+
+      request.on("timeout", () => request.destroy());
+      request.on("error", () => answer(false));
+      request.end();
+    } catch {
+      answer(false);
+    }
+  });
+}
+
+function defaultRunner(command, { env, cwd }) {
+  return spawnSync(command[0], command.slice(1), { stdio: "inherit", env, cwd }).status ?? 1;
+}
+
+export async function main(
+  environ = process.env,
+  { ready = engineReady, runner = defaultRunner, registry } = {},
+) {
+  // [1] The guard decides first: nothing is contacted or launched on a refusal
+  const reason = refusal(environ, registry ? { registry } : {});
+
+  if (reason !== null) {
+    console.error(`Contract run refused: ${reason}`);
+
+    return 1;
+  }
+
+  // [2] The engine must be ready
+  const publicUrl = environ.MERIDIAN_PUBLIC_URL ?? DEFAULT_URLS.MERIDIAN_PUBLIC_URL;
+
+  if (!(await ready(publicUrl))) {
+    console.error(
+      "Contract run refused: the local engine is not ready (or did not answer in 5 s).",
     );
 
-const dir = process.env.MERIDIAN_RUNTIME_DIR ?? runtimeDir;
-const envFile = process.env.GAUSSMERIDIAN_ENV_FILE ?? join(dir, "meridian-engine.env");
+    return 1;
+  }
 
-if (!isInside(runtimeDir, envFile)) {
-  refuse(
-    "Refusing the contract run: MERIDIAN_RUNTIME_DIR / GAUSSMERIDIAN_ENV_FILE point outside the local runtime folder, so the check could miss the real engine configuration.",
+  // [3] The same suite, in contract mode, against the engine. The guard found no proxy; NO_PROXY=* keeps it so
+  const child = Object.fromEntries(
+    Object.entries(environ).filter(([name]) => name.toUpperCase() !== "NODE_OPTIONS"),
   );
+
+  Object.assign(child, {
+    MERIDIAN_CONTRACT: "1",
+    MERIDIAN_RUNTIME_DIR: environ.MERIDIAN_RUNTIME_DIR || runtimeDir(environ),
+    NO_PROXY: "*",
+    no_proxy: "*",
+  });
+
+  return Number(await runner(COMMAND, { env: child, cwd: ROOT }));
 }
 
-// [2] Refuse non-loopback engines.
-const publicUrl = process.env.MERIDIAN_PUBLIC_URL ?? "http://127.0.0.1:8180";
-const adminUrl = process.env.MERIDIAN_ADMIN_URL ?? "http://127.0.0.1:8181";
-
-const remote = [
-  ["MERIDIAN_PUBLIC_URL", publicUrl],
-  ["MERIDIAN_ADMIN_URL", adminUrl],
-]
-  .filter(([, url]) => !isLoopbackUrl(url))
-  .map(([name]) => name);
-
-if (remote.length > 0) {
-  refuse(
-    `Refusing the contract run: ${remote.join(", ")} is not a loopback address (127.0.0.1, localhost, ::1).`,
-  );
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  process.exit(await main());
 }
-
-if (!existsSync(envFile)) {
-  refuse(`No engine runtime at ${dir}. Start it from "1. Engine": pwsh -File scripts/local-up.ps1`);
-}
-
-// [3] Refuse when a real provider key is set. Fail closed if the file cannot be read.
-let text;
-
-try {
-  text = readFileSync(envFile, "utf8");
-} catch {
-  refuse(
-    "Refusing the contract run: the engine env file cannot be read, so it cannot be checked for provider keys.",
-  );
-}
-
-const paid = paidKeysIn(text);
-
-if (paid.length > 0) {
-  refuse(
-    `Refusing the contract run: ${paid.join(", ")} is set, so the engine would call a paid provider.`,
-  );
-}
-
-// [4] The engine must be ready.
-const ready = await fetch(`${publicUrl}/ready`, { signal: AbortSignal.timeout(5000) }).then(
-  (response) => response.status === 200,
-  () => false,
-);
-
-if (!ready) {
-  refuse(
-    `The engine at ${publicUrl} is not ready (or did not answer in 5 s). Start it from "1. Engine": pwsh -File scripts/local-up.ps1`,
-  );
-}
-
-// [5] The same suite, against the real engine.
-const run = spawnSync("pnpm", ["vitest", "run"], {
-  stdio: "inherit",
-  shell: process.platform === "win32",
-  env: { ...process.env, MERIDIAN_CONTRACT: "1", MERIDIAN_RUNTIME_DIR: dir },
-});
-
-process.exit(run.status ?? 1);

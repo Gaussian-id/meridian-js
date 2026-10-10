@@ -9,12 +9,12 @@ import { createRouteHandler, createServerClient } from 'meridian-next'
 import { createBrowserClient } from 'meridian-next/browser'
 import { createPagesHandler } from 'meridian-next/pages'
 
-import { contract, testEngine } from '../../meridian/test/support/engine'
+import { describeEngine, describeFake, testEngine } from '../../meridian/test/support/engine'
 
 const messages = [{ role: 'user', content: 'hi' }]
 const json = { 'content-type': 'application/json' }
 
-describe('meridian-next', () => {
+describeEngine('meridian-next', () => {
   afterEach(() => vi.unstubAllEnvs())
 
   it('builds the server client from MERIDIAN_URL and MERIDIAN_KEY', async () => {
@@ -93,29 +93,31 @@ describe('meridian-next', () => {
     expect(((await response.json()) as { error: { code: string } }).error.code).toBe('service_unavailable')
   })
 
-  it.runIf(!contract)('hides a revoked app key from the browser behind the route', async () => {
-    const engine = testEngine()
-    const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
-    const { POST } = createRouteHandler({ client, authorize: () => true })
+  describeFake('with a scripted engine', () => {
+    it('hides a revoked app key from the browser behind the route', async () => {
+      const engine = testEngine()
+      const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 })
+      const { POST } = createRouteHandler({ client, authorize: () => true })
 
-    engine.fake!.next({
-      status: 401,
-      json: { error: { message: 'revoked', type: 'authentication_error', code: 'key_revoked', request_id: 'req_n' } }
-    })
-
-    const response = await POST(
-      new Request('http://app.test/api/meridian/chat', {
-        method: 'POST',
-        headers: json,
-        body: JSON.stringify({ messages })
+      engine.fake!.next({
+        status: 401,
+        json: { error: { message: 'revoked', type: 'authentication_error', code: 'key_revoked', request_id: 'req_n' } }
       })
-    )
 
-    const text = await response.text()
+      const response = await POST(
+        new Request('http://app.test/api/meridian/chat', {
+          method: 'POST',
+          headers: json,
+          body: JSON.stringify({ messages })
+        })
+      )
 
-    expect(response.status).toBe(503)
-    expect(text).not.toContain('key_revoked')
-    expect(text).toContain('service_unavailable')
+      const text = await response.text()
+
+      expect(response.status).toBe(503)
+      expect(text).not.toContain('key_revoked')
+      expect(text).toContain('service_unavailable')
+    })
   })
 
   it('refuses a POST without a JSON content-type', async () => {

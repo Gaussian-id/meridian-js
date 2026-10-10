@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { expect, it } from 'vitest'
 
 import { createClient } from 'meridian'
 import { createBrowserClient } from 'meridian/browser'
@@ -6,7 +6,7 @@ import { createForwardHandler } from 'meridian/server'
 
 import { HIDDEN_FORWARD_CODES } from '../src/internal/errors'
 
-import { describeFake, testEngine } from './support/engine'
+import { describeEngine, describeFake, testEngine } from './support/engine'
 import { chunk, engineError, envelope, frame } from './support/fake-engine'
 
 const allowAll = () => true
@@ -26,7 +26,7 @@ const post = (body: unknown) =>
     body: typeof body === 'string' ? body : JSON.stringify(body)
   })
 
-describe('createForwardHandler', () => {
+describeEngine('createForwardHandler', () => {
   it('throws at creation without authorize (the one deliberate throw)', () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
@@ -541,7 +541,7 @@ describeFake("forwarding hides the app's own key and billing refusals", () => {
   })
 })
 
-describe('createForwardHandler setup errors', () => {
+describeEngine('createForwardHandler setup errors', () => {
   const messages = [{ role: 'user', content: 'hi' }]
 
   const expectGeneric503 = async (response: Response) => {

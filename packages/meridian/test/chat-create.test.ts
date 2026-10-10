@@ -1,14 +1,14 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 import type { ChatParams } from 'meridian'
 
-import { describeFake, testEngine } from './support/engine'
+import { describeEngine, describeFake, testEngine } from './support/engine'
 import { engineError } from './support/fake-engine'
 
 const messages = [{ role: 'user' as const, content: 'hello' }]
 
-describe('chat.create', () => {
+describeEngine('chat.create', () => {
   it('returns the completion with token usage and no cost', async () => {
     const engine = testEngine()
     const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
@@ -130,7 +130,7 @@ describeFake('chat.create when the body is cut', () => {
   })
 })
 
-describe('createClient refusals', () => {
+describeEngine('createClient refusals', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('refuses to run in a browser and names the browser client', async () => {

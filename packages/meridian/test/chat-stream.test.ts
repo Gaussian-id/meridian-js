@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { expect, it } from 'vitest'
 
 import { createClient } from 'meridian'
 import type { ChatParams } from 'meridian'
 
-import { describeFake, testEngine } from './support/engine'
+import { describeEngine, describeFake, testEngine } from './support/engine'
 import { chunk, envelope, finish, frame, usageChunk } from './support/fake-engine'
 
 const messages = [{ role: 'user' as const, content: 'hello' }]
@@ -14,7 +14,7 @@ function client() {
   return { engine, meridian: createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 0 }) }
 }
 
-describe('chat.stream', () => {
+describeEngine('chat.stream', () => {
   it('always sends stream: true and include_usage: true, whatever the caller passes', async () => {
     const { engine, meridian } = client()
 

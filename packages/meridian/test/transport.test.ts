@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 
-import { describeFake, testEngine } from './support/engine'
+import { describeEngine, describeFake, testEngine } from './support/engine'
 import { engineError } from './support/fake-engine'
 
 const messages = [{ role: 'user' as const, content: 'hi' }]
@@ -142,36 +142,40 @@ describeFake('transport', () => {
   })
 })
 
-it.each([
-  ['NaN', Number.NaN],
-  ['Infinity', Number.POSITIVE_INFINITY],
-  ['negative', -3],
-  ['fractional', 1.9]
-])('sanitizes maxRetries: %s', async (name, value) => {
-  vi.useRealTimers()
-  const engine = testEngine()
+describeFake('transport option sanitizing', () => {
+  it.each([
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['negative', -3],
+    ['fractional', 1.9]
+  ])('sanitizes maxRetries: %s', async (name, value) => {
+    vi.useRealTimers()
+    const engine = testEngine()
 
-  engine.fake!.next(...Array.from({ length: 6 }, () => engineError('upstream_unavailable', { 'retry-after': '0' })))
-  const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: value })
+    engine.fake!.next(...Array.from({ length: 6 }, () => engineError('upstream_unavailable', { 'retry-after': '0' })))
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: value })
 
-  await meridian.chat.create({ messages })
+    await meridian.chat.create({ messages })
 
-  const expected = name === 'negative' ? 1 : name === 'fractional' ? 2 : 3
+    const expected = name === 'negative' ? 1 : name === 'fractional' ? 2 : 3
 
-  expect(engine.fake!.requests).toHaveLength(expected)
+    expect(engine.fake!.requests).toHaveLength(expected)
+  })
 })
 
-it.each([
-  ['zero', 0],
-  ['negative', -5],
-  ['NaN', Number.NaN],
-  ['Infinity', Number.POSITIVE_INFINITY]
-])('falls back to the default timeout for %s', async (_name, value) => {
-  vi.useRealTimers()
-  const engine = testEngine()
-  const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, timeout: value })
-  const { data, error } = await meridian.chat.create({ messages })
+describeEngine('transport timeouts', () => {
+  it.each([
+    ['zero', 0],
+    ['negative', -5],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY]
+  ])('falls back to the default timeout for %s', async (_name, value) => {
+    vi.useRealTimers()
+    const engine = testEngine()
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, timeout: value })
+    const { data, error } = await meridian.chat.create({ messages })
 
-  expect(error).toBeNull()
-  expect(data).not.toBeNull()
+    expect(error).toBeNull()
+    expect(data).not.toBeNull()
+  })
 })

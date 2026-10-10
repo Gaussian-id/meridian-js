@@ -1,13 +1,13 @@
 import { readFileSync } from 'node:fs'
 
-import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, expectTypeOf, it, vi } from 'vitest'
 
 import { createAdminClient, type AdminClient } from 'meridian/admin'
 
 import type { components } from '../src/generated/admin'
 import { withoutPrices, type WithoutPrices } from '../src/internal/cost-opacity'
 import type { Result } from '../src/internal/errors'
-import { describeFake, testEngine } from './support/engine'
+import { describeEngine, describeFake, testEngine } from './support/engine'
 import { createFakeAdmin } from './support/fake-admin'
 import { engineError } from './support/fake-engine'
 
@@ -19,7 +19,7 @@ function admin(maxRetries = 0) {
 
 const unique = () => `sdk-test-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 
-describe('createAdminClient', () => {
+describeEngine('createAdminClient', () => {
   it('creates an organisation once per external reference; a retry returns the same one', async () => {
     const { ops } = admin()
     const reference = unique()
@@ -73,7 +73,7 @@ describe('createAdminClient', () => {
   })
 })
 
-describe('createAdminClient refusals', () => {
+describeEngine('createAdminClient refusals', () => {
   afterEach(() => vi.unstubAllGlobals())
 
   it('refuses to run in a browser', async () => {
@@ -154,7 +154,7 @@ const jsonResponder = (payload: unknown, log?: string[]) =>
     return new Response(JSON.stringify(payload), { status: 200, headers: { 'content-type': 'application/json' } })
   }) as typeof fetch
 
-describe('admin operations match the pinned spec', () => {
+describeEngine('admin operations match the pinned spec', () => {
   it('wraps exactly the IntegratorKey operations, minus the excluded price operations', async () => {
     const engine = testEngine()
     const sent: string[] = []
@@ -191,7 +191,7 @@ describe('admin operations match the pinned spec', () => {
   })
 })
 
-describe('cost opacity (D-27)', () => {
+describeEngine('cost opacity (D-27)', () => {
   const priced = {
     cost_charged: 1,
     cost: 2,

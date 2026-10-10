@@ -1,14 +1,14 @@
 import { createApp, toWebHandler } from 'h3'
-import { describe, expect, it, vi } from 'vitest'
+import { expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 
 import { useMeridian } from 'meridian-nuxt/composables'
 import { defineMeridianHandler, useMeridianServerClient } from 'meridian-nuxt/server'
 
-import { testEngine } from '../../meridian/test/support/engine'
+import { describeEngine, testEngine } from '../../meridian/test/support/engine'
 
-describe('meridian-nuxt', () => {
+describeEngine('meridian-nuxt', () => {
   it('serves a forwarding route as a Nitro handler that streams', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })

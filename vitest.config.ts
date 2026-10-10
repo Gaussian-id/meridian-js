@@ -8,6 +8,8 @@ const expo = (path: string) => fileURLToPath(new URL(`./packages/meridian-expo/$
 const src = (path: string) => fileURLToPath(new URL(`./packages/meridian/src/${path}`, import.meta.url))
 
 export default defineConfig({
+  // No .env file reaches the suite (a contract run must see only the environment the guard checked)
+  envDir: false,
   resolve: {
     alias: [
       { find: /^server-only$/, replacement: next('test/support/server-only-stub.ts') },
@@ -28,6 +30,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['packages/*/test/**/*.test.ts'],
-    exclude: ['**/node_modules/**', 'packages/*/test/fixtures/**']
+    exclude: ['**/node_modules/**', 'packages/*/test/fixtures/**'],
+
+    // packages/meridian/test/support/engine.ts: describeFake and describeEngine
+    tags: [
+      { name: 'fake', description: 'needs the in-memory engine; not registered in contract mode' },
+      { name: 'contract', description: 'runs against the fake engine, and the real local engine in contract mode' }
+    ]
   }
 })
