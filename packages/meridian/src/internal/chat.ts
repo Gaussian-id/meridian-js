@@ -1,6 +1,6 @@
 import type { ChatApi, ChatCompletion, ChatParams, RequestOptions } from '../types'
 
-import { ok } from './errors'
+import { configError, fail, ok, type MeridianError } from './errors'
 import { createChatStream, tokenCounts } from './stream'
 import type { Transport } from './transport'
 
@@ -21,33 +21,55 @@ export function validIdempotencyKey(value: unknown): value is string {
   return typeof value === 'string' && /^[!-~]{1,255}$/.test(value)
 }
 
-/** Chat completions are the only route that honours `idempotency-key`; admin calls never send it. */
-export function idempotency(options: RequestOptions): Record<string, string> {
-  return { 'idempotency-key': options.idempotencyKey ?? newKey() }
+/**
+ * Chat completions are the only route that honours `idempotency-key`; admin calls never send it. The caller's key
+ * when it follows the engine's rule, a fresh one when none (or an empty one) is given; otherwise a configuration
+ * error, and nothing is sent.
+ */
+function idempotency(options: RequestOptions): { 'idempotency-key': string } | MeridianError {
+  const key = options.idempotencyKey
+
+  if (key === undefined || key === '') return { 'idempotency-key': newKey() }
+
+  return validIdempotencyKey(key)
+    ? { 'idempotency-key': key }
+    : configError('idempotencyKey must be 1 to 255 visible ASCII characters (0x21 to 0x7E).')
 }
+
+/** A buffered chat reply may take minutes to write: its default wait for the response (streams and admin: 60 s). */
+const CHAT_CREATE_TIMEOUT_MS = 300_000
 
 export function createChatApi(transport: Transport, path: string): ChatApi {
   return {
     create: async (params: ChatParams, options: RequestOptions = {}) => {
+      const headers = idempotency(options)
+
+      if ('code' in headers) return fail(headers)
+
       const result = await transport.json<ChatCompletion>({
         method: 'POST',
         path,
         body: { ...params, stream: false },
         signal: options.signal,
-        headers: idempotency(options)
+        headers,
+        defaultTimeout: CHAT_CREATE_TIMEOUT_MS
       })
 
       // Same three token counts as stream.usage, nothing else
       return result.error ? result : ok({ ...result.data, usage: tokenCounts(result.data.usage ?? {}) })
     },
     stream: async (params: ChatParams, options: RequestOptions = {}) => {
+      const headers = idempotency(options)
+
+      if ('code' in headers) return fail(headers)
+
       // [1] Ask for the usage chunk so stream.usage is filled (encode.rs: usage only on include_usage)
       const opened = await transport.open({
         method: 'POST',
         path,
         body: { ...params, stream: true, stream_options: { include_usage: true } },
         signal: options.signal,
-        headers: idempotency(options)
+        headers
       })
 
       // [2] A refusal before any byte is an error value; otherwise the stream

@@ -359,7 +359,7 @@ describeFake('admin transport behaviour', () => {
     expect(engine.fake!.requests).toHaveLength(2)
   })
 
-  it('retries reads and idempotent writes', async () => {
+  it('retries reads, and sends a replacing write once after the network failed (writes retry only on rate_limited)', async () => {
     const { engine, ops } = admin(2)
 
     engine.fake!.next(engineError('service_unavailable'), engineError('service_unavailable'))
@@ -374,9 +374,8 @@ describeFake('admin transport behaviour', () => {
     const write = ops.projectModels.put('o1', 'p1', { models: [] })
 
     await vi.runAllTimersAsync()
-    await write
-
-    expect(engine.fake!.requests).toHaveLength(5)
+    expect((await write).error?.code).toBe('network_error')
+    expect(engine.fake!.requests).toHaveLength(4)
   })
 
   it('retries organisation create only when an external reference makes it idempotent', async () => {

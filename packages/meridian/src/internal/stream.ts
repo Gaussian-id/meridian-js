@@ -4,8 +4,10 @@ import {
   clientError,
   errorFromEnvelope,
   fail,
+  NOT_JSON,
   ok,
   parseEnvelope,
+  strictJson,
   validRequestId,
   type MeridianError,
   type Result
@@ -63,13 +65,9 @@ async function* events(body: ReadableStream<Uint8Array>): AsyncGenerator<string>
 
 /** A chunk frame, or null when it is not JSON of the expected shape. */
 function parseChunk(data: string): ChatChunkRaw | null {
-  try {
-    const value = JSON.parse(data) as ChatChunkRaw
+  const value = strictJson(data) as ChatChunkRaw | typeof NOT_JSON
 
-    return Array.isArray(value?.choices) ? value : null
-  } catch {
-    return null
-  }
+  return value !== NOT_JSON && Array.isArray(value?.choices) ? value : null
 }
 
 /** Only the three token counts leave the SDK, and only those present; any other field is dropped. */

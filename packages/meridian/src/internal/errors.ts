@@ -208,19 +208,68 @@ export function errorMember(value: unknown): Record<string, unknown> | typeof MA
 /** The engine's envelope in a text: an error object with a non-empty string code and a string message; else null. */
 export function parseEnvelope(text: string): EngineEnvelope | null {
   if (!text) return null
-  let member: ReturnType<typeof errorMember>
-
-  try {
-    member = errorMember(JSON.parse(text))
-  } catch {
-    return null
-  }
+  const parsed = strictJson(text)
+  const member = parsed === NOT_JSON ? null : errorMember(parsed)
 
   if (member === null || member === MALFORMED) return null
+  if (typeof member.code !== 'string' || member.code === '' || typeof member.message !== 'string') return null
 
-  return typeof member.code === 'string' && member.code !== '' && typeof member.message === 'string'
-    ? ({ error: member } as unknown as EngineEnvelope)
-    : null
+  // Only the string fields (and a retryable of false) are kept
+  const kept = Object.fromEntries(Object.entries(member).filter(([, value]) => typeof value === 'string'))
+
+  return { error: { ...kept, ...(member.retryable === false ? { retryable: false } : {}) } } as EngineEnvelope
+}
+
+/** What strictJson gives for text that is not JSON. */
+export const NOT_JSON = Symbol('not JSON')
+
+/** The decoded JSON, or NOT_JSON. Strict as Go is: a number too large for a float (`1e999`) is refused, never read as infinity. */
+export function strictJson(text: string): unknown {
+  try {
+    return JSON.parse(text, (_key, value: unknown) => {
+      if (typeof value === 'number' && !Number.isFinite(value)) throw new RangeError('a number JSON cannot hold')
+
+      return value
+    })
+  } catch {
+    return NOT_JSON
+  }
+}
+
+/** An error body is read this far (an envelope is a few hundred bytes); over it, the body is no envelope. */
+const MAX_ERROR_BODY_BYTES = 1024 * 1024
+
+/** A body's bytes, or null once it holds more than `cap` bytes: the rest is cancelled, never read. */
+export async function readCapped(body: ReadableStream<Uint8Array> | null, cap: number): Promise<Uint8Array | null> {
+  if (!body) return new Uint8Array()
+  const reader = body.getReader()
+  const parts: Uint8Array[] = []
+  let size = 0
+
+  for (;;) {
+    const { value, done } = await reader.read()
+
+    if (done) break
+    size += value.byteLength
+
+    if (size > cap) {
+      reader.cancel().catch(() => {})
+
+      return null
+    }
+
+    parts.push(value)
+  }
+
+  const bytes = new Uint8Array(size)
+  let at = 0
+
+  for (const part of parts) {
+    bytes.set(part, at)
+    at += part.byteLength
+  }
+
+  return bytes
 }
 
 export function errorFromEnvelope(envelope: EngineEnvelope, status?: number): MeridianError {
@@ -246,12 +295,14 @@ export function errorFromEnvelope(envelope: EngineEnvelope, status?: number): Me
 }
 
 export async function errorFromResponse(response: Response, aborted?: () => boolean): Promise<MeridianError> {
-  // [1] Read the body once; a body that cannot be read counts as empty
+  // [1] Read the body once, up to its cap; a body that cannot be read, or is over the cap, counts as empty
   const headerId = response.headers.get('x-request-id') ?? undefined
   let text = ''
 
   try {
-    text = await response.text()
+    const raw = await readCapped(response.body, MAX_ERROR_BODY_BYTES)
+
+    text = raw === null ? '' : new TextDecoder().decode(raw)
   } catch {
     if (aborted?.()) return clientError('aborted', 'The request was aborted.')
   }

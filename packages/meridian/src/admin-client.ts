@@ -15,7 +15,12 @@ type Query<Op> = Op extends { parameters: { query: infer Q } } ? Q : never
 type Out<Op> = Promise<Result<WithoutPrices<OkBody<Op>>>>
 type Done = Promise<Result<null>>
 
-/** Provisioning with an integrator key (`gmi_`): the engine's wire shapes, snake_case. `orgs.create` is idempotent by `external_reference`; `keys.create` returns the new `api_key` once, so store it. */
+/**
+ * Provisioning with an integrator key (`gmi_`): the engine's wire shapes, snake_case. `orgs.create` is idempotent by
+ * `external_reference`; `keys.create` returns the new `api_key` once, so store it. That key is a plain field of a
+ * plain object: this SDK hides it nowhere, so logging or inspecting the result (`console.log`, `util.inspect`) prints
+ * it, and `JSON.stringify` includes it on purpose (the key has to reach your store). Keep the result out of logs.
+ */
 export interface AdminClient {
   orgs: {
     create(body: Body<P['/v1/orgs']['post']>, o?: RequestOptions): Out<P['/v1/orgs']['post']>
@@ -83,23 +88,34 @@ export interface AdminClient {
 /** A route: the path to call, or the reason a parameter cannot be part of one. */
 type Route = string | MeridianError
 
-/** True for a parameter that would climb to, or collapse into, another resource's route. */
-function isUnsafeSegment(value: string | number): boolean {
+/** A parameter as written and after one percent-decode. */
+function spellings(value: string | number): string[] {
   const text = String(value)
-  let decoded = text
 
   try {
-    decoded = decodeURIComponent(text)
+    return [text, decodeURIComponent(text)]
   } catch {
     // Not valid percent-encoding: the raw text is what gets encoded below
+    return [text]
   }
-
-  return [text, decoded].some(candidate => candidate === '' || candidate === '.' || candidate === '..')
 }
 
-/** A path with every interpolated value encoded as one segment; an empty or dot segment is refused, never sent. */
+/** True for a parameter that would climb to, or collapse into, another resource's route. */
+const isUnsafeSegment = (value: string | number) =>
+  spellings(value).some(candidate => candidate === '' || candidate === '.' || candidate === '..')
+
+/**
+ * A path with every interpolated value encoded as one segment. An empty or dot segment is refused, never sent; so is
+ * an organisation id that reads as `by-reference` (it would reach the by-reference route instead).
+ */
 function path(strings: TemplateStringsArray, ...values: (string | number)[]): Route {
   if (values.some(isUnsafeSegment)) return configError('A resource id must not be empty, "." or "..".')
+
+  const byReference = values.some(
+    (value, i) => strings[i]!.endsWith('/v1/orgs/') && spellings(value).includes('by-reference')
+  )
+
+  if (byReference) return configError('An organisation id must not be "by-reference".')
 
   return strings.reduce((out, part, i) => out + part + (i < values.length ? encodeURIComponent(values[i]!) : ''), '')
 }
@@ -114,18 +130,26 @@ function createAdminApi(transport: Transport): AdminClient {
     return result.error ? result : ok(withoutPrices(result.data) as T)
   }
 
-  // [2] Reads, replaces and deletes are safe to repeat; a create is not, unless the caller says otherwise
+  // [2] The transport decides what may be repeated (mayRepeat): reads and deletes; writes only after a rate limit,
+  //     except an organisation create with a reference, which the engine replays
   const read = <T>(url: Route, o?: RequestOptions, query?: Call['query']) =>
     send<T>({ method: 'GET', path: url, query }, o)
 
-  const write = <T>(method: Call['method'], url: Route, body: unknown, o?: RequestOptions, retry = false) =>
-    send<T>({ method, path: url, body, retry }, o)
+  const write = <T>(method: Call['method'], url: Route, body: unknown, o?: RequestOptions, repeatable = false) =>
+    send<T>({ method, path: url, body, repeatable }, o)
 
   const remove = (url: Route, o?: RequestOptions) => send<null>({ method: 'DELETE', path: url }, o)
 
   return {
     orgs: {
-      create: (body, o) => write('POST', '/v1/orgs', body, o, Boolean(body.external_reference)),
+      create: (body, o) =>
+        write(
+          'POST',
+          '/v1/orgs',
+          body,
+          o,
+          typeof body.external_reference === 'string' && body.external_reference.trim() !== ''
+        ),
       get: (org, o) => read(path`/v1/orgs/${org}`, o),
       getByReference: (reference, o) => read(path`/v1/orgs/by-reference/${reference}`, o),
       list: o => read('/v1/orgs', o)
@@ -134,7 +158,7 @@ function createAdminApi(transport: Transport): AdminClient {
       create: (org, body, o) => write('POST', path`/v1/orgs/${org}/projects`, body, o),
       get: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}`, o),
       list: (org, o) => read(path`/v1/orgs/${org}/projects`, o),
-      update: (org, project, body, o) => write('PATCH', path`/v1/orgs/${org}/projects/${project}`, body, o, true),
+      update: (org, project, body, o) => write('PATCH', path`/v1/orgs/${org}/projects/${project}`, body, o),
       delete: (org, project, o) => remove(path`/v1/orgs/${org}/projects/${project}`, o)
     },
     keys: {
@@ -144,13 +168,12 @@ function createAdminApi(transport: Transport): AdminClient {
     },
     providerCredentials: {
       list: (org, o) => read(path`/v1/orgs/${org}/provider-credentials`, o),
-      put: (org, provider, body, o) =>
-        write('PUT', path`/v1/orgs/${org}/provider-credentials/${provider}`, body, o, true),
+      put: (org, provider, body, o) => write('PUT', path`/v1/orgs/${org}/provider-credentials/${provider}`, body, o),
       delete: (org, provider, o) => remove(path`/v1/orgs/${org}/provider-credentials/${provider}`, o)
     },
     projectModels: {
       get: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}/models`, o),
-      put: (org, project, body, o) => write('PUT', path`/v1/orgs/${org}/projects/${project}/models`, body, o, true)
+      put: (org, project, body, o) => write('PUT', path`/v1/orgs/${org}/projects/${project}/models`, body, o)
     },
     models: {
       list: o => read('/v1/models', o),
