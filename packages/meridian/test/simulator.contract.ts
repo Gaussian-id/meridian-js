@@ -111,12 +111,19 @@ describeSimulator('simulator contract', () => {
 
     expect((await own.models.list()).error).toBeNull()
     await ops.keys.revoke(org.id, project.id, issued.key_id)
-    const { data, error } = await own.models.list()
+
+    // [1] The engine may keep accepting a revoked key for up to 5 s (its key cache), so poll for 8 s
+    let { data, error } = await own.models.list()
+
+    for (const deadline = Date.now() + 8_000; error === null && Date.now() < deadline;) {
+      await new Promise(resolve => setTimeout(resolve, 250))
+      ;({ data, error } = await own.models.list())
+    }
 
     expect(data).toBeNull()
     expect(error?.status).toBe(401)
     expect(REVOKED).toContain(error?.code)
-  })
+  }, 15_000)
 
   it('forwarding: a buffered and a streamed request, through the core handler, against the real engine', async () => {
     const { engine, meridian } = clients()
