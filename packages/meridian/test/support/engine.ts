@@ -7,6 +7,7 @@ import {
   DEFAULT_URLS,
   refusal,
   runtimeDir,
+  type DockerRunner,
   type Environ,
   type RegistryEntries
 } from '../../../../scripts/contract-guard.mjs'
@@ -28,6 +29,14 @@ export function describeEngine(name: string, fn: () => void) {
   describe(name, { tags: ['contract'] }, fn)
 }
 
+/**
+ * Tests that need the real engine in simulator mode (its fixed reply and its keys). Not registered at all outside
+ * contract mode, so the normal suite never meets them; inside it the guard has already proven the simulator.
+ */
+export function describeSimulator(name: string, fn: () => void) {
+  if (contract) describe(name, { tags: ['contract'] }, fn)
+}
+
 export interface TestEngine {
   fetch: typeof fetch
   publicUrl: string
@@ -39,7 +48,10 @@ export interface TestEngine {
 }
 
 /** The real local engine, behind the same guard scripts/contract.mjs runs: even a direct contract-mode run meets it. */
-export function contractEngine(environ: Environ, options?: { registry?: () => RegistryEntries }): TestEngine {
+export function contractEngine(
+  environ: Environ,
+  options?: { registry?: () => RegistryEntries; docker?: DockerRunner }
+): TestEngine {
   const reason = refusal(environ, options)
   const folder = environ.MERIDIAN_RUNTIME_DIR || runtimeDir(environ)
 

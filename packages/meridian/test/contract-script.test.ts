@@ -12,6 +12,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 
 import { COMMAND, engineReady, main, readyEndpoint, ROOT } from '../../../scripts/contract.mjs'
 import type { Environ } from '../../../scripts/contract-guard.mjs'
+import { simDocker } from './support/fake-docker'
 
 const GEMINI = 'GAUSSMERIDIAN_GEMINI_API_KEY'
 const SECRET = 'v' + 'q'.repeat(24) // built at run time; nothing the script prints may contain it
@@ -33,7 +34,7 @@ function runtimeWith(text = 'GAUSSMERIDIAN_DB_PASSWORD=x\n') {
 }
 
 /** A runner and a readiness probe that record what they were asked and launch nothing. */
-function calls({ ready = true, code = 0, registry = {} as Record<string, string> } = {}) {
+function calls({ ready = true, code = 0, registry = {} as Record<string, string>, environ = {} as Environ } = {}) {
   const readyUrls: string[] = []
   const runs: { command: string[]; env: Environ; cwd: string }[] = []
 
@@ -51,7 +52,8 @@ function calls({ ready = true, code = 0, registry = {} as Record<string, string>
 
         return code
       },
-      registry: () => registry
+      registry: () => registry,
+      docker: simDocker(environ)
     }
   }
 }
@@ -106,7 +108,7 @@ describe('contract script', () => {
 
   it('refuses without running when the engine is not ready', async () => {
     const { environ } = runtimeWith()
-    const seen = calls({ ready: false })
+    const seen = calls({ ready: false, environ })
 
     expect(await main(environ, seen.options)).toBe(1)
     expect(errors.join('\n')).toContain('not ready')
@@ -116,8 +118,8 @@ describe('contract script', () => {
 
   it('launches the suite in contract mode, without a proxy or NODE_OPTIONS, and returns its code', async () => {
     const { environ, folder } = runtimeWith()
-    const seen = calls({ code: 3 })
     const env = { ...environ, MERIDIAN_PUBLIC_URL: 'http://localhost:9180', MERIDIAN_CONTRACT: '0' }
+    const seen = calls({ code: 3, environ: env })
 
     expect(await main({ ...env, NODE_OPTIONS: '--env-file=.env', node_options: '-r x' }, seen.options)).toBe(3)
     expect(seen.readyUrls).toEqual(['http://localhost:9180'])
@@ -134,7 +136,7 @@ describe('contract script', () => {
 
   it.each(['HTTP_PROXY', 'https_proxy', 'All_Proxy'])('refuses %s before anything runs', async name => {
     const { environ } = runtimeWith()
-    const seen = calls()
+    const seen = calls({ environ })
 
     expect(await main({ ...environ, [name]: `http://u:${SECRET}@proxy.example:3128` }, seen.options)).toBe(1)
     expect(errors.join('\n')).toContain('proxy')
@@ -145,7 +147,7 @@ describe('contract script', () => {
 
   it('refuses a registry proxy before anything runs', async () => {
     const { environ } = runtimeWith()
-    const seen = calls({ registry: { http: 'http://reg.example:3128' } })
+    const seen = calls({ registry: { http: 'http://reg.example:3128' }, environ })
 
     expect(await main({ ...environ, no_proxy: '127.0.0.1' }, seen.options)).toBe(1)
     expect(errors.join('\n')).toContain('http')
@@ -155,7 +157,7 @@ describe('contract script', () => {
 
   it('gives the child the runtime dir that was checked', async () => {
     const { environ, folder } = runtimeWith()
-    const seen = calls()
+    const seen = calls({ environ })
 
     mkdirSync(join(folder, 'sub'))
     expect(await main({ ...environ, MERIDIAN_RUNTIME_DIR: join(folder, 'sub') }, seen.options)).toBe(0)
@@ -164,12 +166,21 @@ describe('contract script', () => {
 
   it('asks for /ready whatever the trailing slash', async () => {
     const { environ } = runtimeWith()
-    const seen = calls({ ready: false })
+    const seen = calls({ ready: false, environ })
 
     await main({ ...environ, MERIDIAN_PUBLIC_URL: 'http://127.0.0.1:8180/' }, seen.options)
     expect(seen.readyUrls).toEqual(['http://127.0.0.1:8180/'])
     expect(readyEndpoint('http://127.0.0.1:8180/')).toBe('http://127.0.0.1:8180/ready')
     expect(readyEndpoint('http://127.0.0.1:8180')).toBe('http://127.0.0.1:8180/ready')
+  })
+
+  it('refuses before anything runs when the simulator is not proven', async () => {
+    const { environ } = runtimeWith()
+    const seen = calls({ environ: { ...environ, GAUSSMERIDIAN_ENV_FILE: join(tmpdir(), 'elsewhere.env') } })
+
+    expect(await main(environ, seen.options)).toBe(1)
+    expect(errors.join('\n')).toContain('env file')
+    expect([seen.readyUrls, seen.runs]).toEqual([[], []])
   })
 
   it('run as a program, refuses with a non-zero exit and no values', () => {

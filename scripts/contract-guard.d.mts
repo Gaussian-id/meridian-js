@@ -20,4 +20,10 @@ export function readRegistryProxies(
   platform?: string
 ): RegistryEntries
 export function proxySchemes(environ: Environ, entries: RegistryEntries): string[]
-export function refusal(environ: Environ, options?: { registry?: () => RegistryEntries }): string | null
+export type DockerRunner = (args: string[]) => SpawnResult
+export const SIM_TEMPLATE: string
+export function simulatorProof(environ: Environ, runtime: string, options?: { docker?: DockerRunner }): string | null
+export function refusal(
+  environ: Environ,
+  options?: { registry?: () => RegistryEntries; docker?: DockerRunner }
+): string | null

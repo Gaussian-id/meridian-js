@@ -1,4 +1,4 @@
-import type { Environ, RegistryEntries } from './contract-guard.mjs'
+import type { DockerRunner, Environ, RegistryEntries } from './contract-guard.mjs'
 
 export const ROOT: string
 export const COMMAND: string[]
@@ -10,5 +10,6 @@ export function main(
     ready?: (publicUrl: string) => Promise<boolean>
     runner?: (command: string[], options: { env: Environ; cwd: string }) => number | Promise<number>
     registry?: () => RegistryEntries
+    docker?: DockerRunner
   }
 ): Promise<number>

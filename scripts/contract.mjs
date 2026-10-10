@@ -58,10 +58,10 @@ function defaultRunner(command, { env, cwd }) {
 
 export async function main(
   environ = process.env,
-  { ready = engineReady, runner = defaultRunner, registry } = {},
+  { ready = engineReady, runner = defaultRunner, registry, docker } = {},
 ) {
   // [1] The guard decides first: nothing is contacted or launched on a refusal
-  const reason = refusal(environ, registry ? { registry } : {});
+  const reason = refusal(environ, { ...(registry && { registry }), ...(docker && { docker }) });
 
   if (reason !== null) {
     console.error(`Contract run refused: ${reason}`);

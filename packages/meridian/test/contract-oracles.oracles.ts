@@ -11,6 +11,7 @@ import { afterAll, expect, it } from 'vitest'
 
 import { isInside, refusal } from '../../../scripts/contract-guard.mjs'
 import { describeFake } from './support/engine'
+import { simDocker } from './support/fake-docker'
 import { differentialTexts, GEMINI, OPENROUTER } from './support/guard-texts'
 
 /** The paid names a reader sets to a non-empty value, per text label; null where it rejects the file. */
@@ -229,7 +230,9 @@ function guardAllows(): Set<string> {
 
   for (const [label, text] of Object.entries(differentialTexts())) {
     writeFileSync(join(folder, 'meridian-engine.env'), Buffer.from(text, 'utf8'))
-    if (refusal({ LOCALAPPDATA: root }, { registry: () => ({}) }) === null) allowed.add(label)
+    const environ = { LOCALAPPDATA: root }
+
+    if (refusal(environ, { registry: () => ({}), docker: simDocker(environ) }) === null) allowed.add(label)
   }
 
   return allowed

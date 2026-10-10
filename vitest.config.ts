@@ -29,7 +29,12 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/*/test/**/*.test.ts'],
+
+    // The simulator suite (*.contract.ts) is picked up only in contract mode, never by `pnpm test`
+    include: [
+      'packages/*/test/**/*.test.ts',
+      ...(process.env.MERIDIAN_CONTRACT === '1' ? ['packages/*/test/**/*.contract.ts'] : [])
+    ],
     exclude: ['**/node_modules/**', 'packages/*/test/fixtures/**'],
 
     // packages/meridian/test/support/engine.ts: describeFake and describeEngine

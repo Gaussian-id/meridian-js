@@ -17,6 +17,7 @@ import {
   type RegistryEntries
 } from '../../../scripts/contract-guard.mjs'
 import { contractEngine, describeFake, testEngine } from './support/engine'
+import { simDocker } from './support/fake-docker'
 import {
   BOTH,
   GEMINI,
@@ -56,7 +57,8 @@ function runtimeWith(text = 'GAUSSMERIDIAN_DB_PASSWORD=x\n') {
 }
 
 /** The guard with no registry proxy: a test must not depend on this machine's registry. */
-const judge = (environ: Environ, registry: RegistryEntries = {}) => refusal(environ, { registry: () => registry })
+const judge = (environ: Environ, registry: RegistryEntries = {}) =>
+  refusal(environ, { registry: () => registry, docker: simDocker(environ) })
 
 /** A directory link: a junction on Windows (no privilege needed), a symlink elsewhere. */
 function link(target: string, at: string) {
@@ -514,10 +516,13 @@ describe('contract guard: proxies', () => {
   })
 
   it('refuses when the registry cannot be read', () => {
-    const message = refusal(runtimeWith().environ, {
+    const { environ } = runtimeWith()
+
+    const message = refusal(environ, {
       registry: () => {
         throw new Error('no reg.exe')
-      }
+      },
+      docker: simDocker(environ)
     })
 
     expect(message).toContain('registry')
@@ -586,7 +591,7 @@ describe('contract guard: the engine contract tests talk to', () => {
     let message = ''
 
     try {
-      contractEngine(environ, { registry: () => ({}) })
+      contractEngine(environ, { registry: () => ({}), docker: simDocker(environ) })
     } catch (error) {
       message = String(error)
     }
@@ -603,7 +608,8 @@ describe('contract guard: the engine contract tests talk to', () => {
     mkdirSync(join(folder, 'sub'))
     writeFileSync(join(folder, 'sub', 'local-api-key.txt'), project + '\n')
     writeFileSync(join(folder, 'sub', 'local-integrator-key.txt'), integrator + '\n')
-    const engine = contractEngine({ ...environ, MERIDIAN_RUNTIME_DIR: join(folder, 'sub') }, { registry: () => ({}) })
+    const all = { ...environ, MERIDIAN_RUNTIME_DIR: join(folder, 'sub') }
+    const engine = contractEngine(all, { registry: () => ({}), docker: simDocker(all) })
 
     expect([engine.projectKey, engine.integratorKey]).toEqual([project, integrator])
     expect([engine.publicUrl, engine.adminUrl]).toEqual(['http://127.0.0.1:8180', 'http://127.0.0.1:8181'])

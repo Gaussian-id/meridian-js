@@ -266,11 +266,154 @@ function paidKeysInFile(path) {
   }
 }
 
+const DEFAULT_PROJECT = "meridian-engine";
+const PROJECT_NAME = /^[a-z0-9][a-z0-9_-]*$/;
+const CONTAINER_ID = /^[0-9a-f]{12,64}$/;
+const LABEL = (name) => `{{index .Config.Labels "${name}"}}`;
+
+// The only environment entries the proof may compare, each by exact equality inside the docker template, so the
+// output is a token and never a value. The two paid keys are compared with the public dummy of
+// deploy/compose.simulator.yaml and nothing else.
+const SIM_ENV = [
+  ["gemini_base", "GAUSSMERIDIAN_GEMINI_BASE_URL=http://provider-sim:8184/v1beta"],
+  ["openrouter_base", "GAUSSMERIDIAN_OPENROUTER_BASE_URL=http://provider-sim:8184/api/v1"],
+  ["sim_flag", "GAUSSMERIDIAN_PROVIDER_SIMULATOR=true"],
+  ["gemini_dummy", "GAUSSMERIDIAN_GEMINI_API_KEY=sim-local-key"],
+  ["openrouter_dummy", "GAUSSMERIDIAN_OPENROUTER_API_KEY=sim-local-key"],
+];
+
+export const SIM_TEMPLATE = `{{range .Config.Env}}${SIM_ENV.map(([token, entry]) => `{{if eq . "${entry}"}}${token} {{end}}`).join("")}{{end}}`;
+const ENV_FILE_TEMPLATE = LABEL("com.docker.compose.project.environment_file");
+
+/** docker, with a fixed argv and no shell; its output is read here and never printed. */
+function runDocker(args) {
+  return spawnSync("docker", args, { encoding: "utf8", timeout: 20_000, windowsHide: true });
+}
+
+function ask(docker, args) {
+  try {
+    const done = docker(args);
+
+    if (!done || done.error || done.status !== 0 || typeof done.stdout !== "string") return null;
+
+    return done.stdout;
+  } catch {
+    return null;
+  }
+}
+
+const lines = (text) => text.split(/\r?\n/).filter((line) => line.trim() !== "");
+
+function urlPort(value, fallback) {
+  const url = new URL(value ?? fallback);
+
+  return url.port || (url.protocol === "https:" ? "443" : "80");
+}
+
+/**
+ * Why the engine on this machine is not proven to be in simulator mode and started from this runtime's env file, or
+ * null when it is. S1 provider-sim runs; S2 exactly one engine owns the public and admin ports on 127.0.0.1;
+ * S3 its provider settings are the simulator's (exact comparisons inside the docker template, tokens out);
+ * S4 it was started from the env file of this runtime (the compose label, or a marker of the runbook when the label
+ * is absent). Any error counts as a refusal. Names only. `docker` takes an argv and returns a spawnSync result.
+ */
+export function simulatorProof(environ, runtime, { docker = runDocker } = {}) {
+  const project = environ.GAUSSMERIDIAN_LOCAL_PROJECT || DEFAULT_PROJECT;
+
+  if (!PROJECT_NAME.test(project))
+    return "GAUSSMERIDIAN_LOCAL_PROJECT is not a plain project name.";
+  const unasked = "the simulator cannot be proven: docker cannot be asked.";
+
+  const running = (service) =>
+    ask(docker, [
+      "ps",
+      "-q",
+      "--filter",
+      `label=com.docker.compose.project=${project}`,
+      "--filter",
+      `label=com.docker.compose.service=${service}`,
+      "--filter",
+      "status=running",
+    ]);
+
+  // [S1]
+  const provider = running("provider-sim");
+
+  if (provider === null) return unasked;
+  const providers = lines(provider);
+
+  if (providers.length !== 1 || !CONTAINER_ID.test(providers[0].trim()))
+    return "provider-sim is not running exactly once, so this is not the simulator.";
+
+  // [S2]
+  const engines = running("engine");
+
+  if (engines === null) return unasked;
+  const found = lines(engines);
+
+  if (found.length !== 1 || !CONTAINER_ID.test(found[0].trim()))
+    return "there is not exactly one engine container running.";
+  const id = found[0].trim();
+  let wanted;
+
+  try {
+    wanted = {
+      "8180/tcp": urlPort(environ.MERIDIAN_PUBLIC_URL, DEFAULT_URLS.MERIDIAN_PUBLIC_URL),
+      "8181/tcp": urlPort(environ.MERIDIAN_ADMIN_URL, DEFAULT_URLS.MERIDIAN_ADMIN_URL),
+    };
+  } catch {
+    return "MERIDIAN_PUBLIC_URL or MERIDIAN_ADMIN_URL cannot be read, so the engine ports cannot be compared.";
+  }
+
+  for (const [port, host] of Object.entries(wanted)) {
+    const bound = ask(docker, ["port", id, port]);
+
+    if (bound === null) return unasked;
+    const bindings = lines(bound).map((line) => line.trim());
+
+    if (bindings.length !== 1 || bindings[0] !== `127.0.0.1:${host}`)
+      return "the engine does not own the public and admin ports on 127.0.0.1 (ports differ from the URLs).";
+  }
+
+  // [S3]
+  const printed = ask(docker, ["inspect", id, "--format", SIM_TEMPLATE]);
+
+  if (printed === null) return unasked;
+  const tokens = printed.split(/\s+/).filter(Boolean);
+  const missing = SIM_ENV.map(([token]) => token).filter((token) => !tokens.includes(token));
+
+  if (missing.length > 0)
+    return `the engine is not set up for the simulator (missing: ${missing.join(", ")}).`;
+  if (tokens.length !== SIM_ENV.length) return "the engine is not set up for the simulator.";
+
+  // [S4]
+  const label = ask(docker, ["inspect", id, "--format", ENV_FILE_TEMPLATE]);
+
+  if (label === null) return unasked;
+  const mine = environ.GAUSSMERIDIAN_ENV_FILE || join(runtime, ENV_FILE);
+  const stated = label.trim();
+  const refused = "the engine was not started from the env file of this runtime.";
+
+  try {
+    if (stated !== "") return real(stated) === real(mine) ? null : refused;
+
+    // No label: the runbook's marker, written in the runtime folder after local-up, holds this engine's id
+    const marker = readFileSync(join(runtime, `.sim-started-${id}`), "utf8").trim();
+
+    return CONTAINER_ID.test(marker) && (marker.startsWith(id) || id.startsWith(marker))
+      ? null
+      : refused;
+  } catch {
+    return refused;
+  }
+}
+
 /**
  * Why a contract run must not start, or null when it may. Names only; never a value, path or URL.
- * `registry` returns the Windows registry's proxy entries (injectable; tests never read this machine's).
+ * `registry` returns the Windows registry's proxy entries and `docker` runs docker (both injectable; tests never
+ * read this machine's registry or call docker).
  */
-export function refusal(environ, { registry = readRegistryProxies } = {}) {
+export function refusal(environ, { registry = readRegistryProxies, docker = runDocker } = {}) {
   // [1] The runtime folder the engine's scripts use is the only place the guard trusts
   const runtime = runtimeDir(environ);
 
@@ -347,6 +490,12 @@ export function refusal(environ, { registry = readRegistryProxies } = {}) {
       return `${name} is not a loopback URL (localhost, 127.0.0.0/8 or ::1).`;
     }
   }
+
+  // [4.5] The engine must be proven to be the simulator, started from this runtime's env file. After the URLs, so
+  //       the ports it compares are loopback ones.
+  const unproven = simulatorProof(environ, runtime, { docker });
+
+  if (unproven !== null) return unproven;
 
   // [5] No proxy between the suite and the engine; a registry that cannot be read counts as one
   let entries;
