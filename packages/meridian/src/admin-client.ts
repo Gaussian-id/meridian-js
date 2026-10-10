@@ -17,9 +17,10 @@ type Done = Promise<Result<null>>
 
 /**
  * Provisioning with an integrator key (`gmi_`): the engine's wire shapes, snake_case. `orgs.create` is idempotent by
- * `external_reference`; `keys.create` returns the new `api_key` once, so store it. That key is a plain field of a
- * plain object: this SDK hides it nowhere, so logging or inspecting the result (`console.log`, `util.inspect`) prints
- * it, and `JSON.stringify` includes it on purpose (the key has to reach your store). Keep the result out of logs.
+ * `external_reference`; `keys.create` returns the new `api_key` once, so store it. Inspection and logging hide it
+ * (`util.inspect`, `console.log` and Deno's console show `'[redacted]'`); it stays a plain field, so `JSON.stringify`,
+ * a spread (`{ ...data }`) and JSON loggers such as pino or winston carry it, on purpose (the key has to reach your
+ * store). Keep the result out of logs.
  */
 export interface AdminClient {
   orgs: {
@@ -120,6 +121,27 @@ function path(strings: TemplateStringsArray, ...values: (string | number)[]): Ro
   return strings.reduce((out, part, i) => out + part + (i < values.length ? encodeURIComponent(values[i]!) : ''), '')
 }
 
+/**
+ * Hides an issued `api_key` from inspection and logging: `util.inspect`, `console.log` (Node, Bun) and Deno's console
+ * show `'[redacted]'`. Through non-enumerable symbol members only, so the field stays a plain value: `JSON.stringify`,
+ * a spread and JSON loggers (pino, winston) keep the key, on purpose.
+ */
+function redactKey<T>(result: Result<T>): Result<T> {
+  const data = result.data as Record<string, unknown> | null
+
+  if (typeof data?.api_key !== 'string') return result
+  const shown = () => ({ ...data, api_key: '[redacted]' })
+
+  Object.defineProperties(data, {
+    [Symbol.for('nodejs.util.inspect.custom')]: { value: shown },
+    [Symbol.for('Deno.customInspect')]: {
+      value: (inspect: (value: unknown, options?: unknown) => string, options?: unknown) => inspect(shown(), options)
+    }
+  })
+
+  return result
+}
+
 function createAdminApi(transport: Transport): AdminClient {
   // [1] One call: the reply loses any price or cost field before the caller sees it
   const send = async <T>(call: Omit<Call, 'path'> & { path: Route }, o: RequestOptions = {}): Promise<Result<T>> => {
@@ -162,7 +184,8 @@ function createAdminApi(transport: Transport): AdminClient {
       delete: (org, project, o) => remove(path`/v1/orgs/${org}/projects/${project}`, o)
     },
     keys: {
-      create: (org, project, body, o) => write('POST', path`/v1/orgs/${org}/projects/${project}/keys`, body ?? {}, o),
+      create: async (org, project, body, o) =>
+        redactKey(await write('POST', path`/v1/orgs/${org}/projects/${project}/keys`, body ?? {}, o)),
       list: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}/keys`, o),
       revoke: (org, project, key, o) => remove(path`/v1/orgs/${org}/projects/${project}/keys/${key}`, o)
     },

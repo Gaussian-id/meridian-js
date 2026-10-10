@@ -14,6 +14,6 @@
       "#imports": ["packages/meridian-nuxt/test/support/imports-stub.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"],
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts", "vitest.oracles.config.ts"],
   "exclude": ["**/dist/**", "packages/*/test/fixtures/**"]
 }

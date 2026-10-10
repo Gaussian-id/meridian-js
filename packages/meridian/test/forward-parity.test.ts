@@ -185,6 +185,27 @@ describeFake('forwarding parity: the body', () => {
     expect(sent).not.toHaveProperty('n')
     expect(sent.top_p).toBe(0.5)
   })
+
+  it('refuses a number JSON cannot hold (1e999) with 400, never forwarding it as null', async () => {
+    const { engine, handler } = setup({ allow: { options: ['top_p'] } })
+    const response = await handler(post(`{"messages":${JSON.stringify(hi)},"top_p":1e999}`))
+
+    expect(response.status).toBe(400)
+    expect((await errorOf(response)).code).toBe('invalid_request')
+    expect(engine.fake!.requests).toHaveLength(0)
+  })
+
+  it('reads a bare string in options as one name, not its letters', async () => {
+    const { engine, handler } = setup({ allow: { options: 'top_p' as unknown as string[] } })
+
+    await handler(ask({ top_p: 0.5, t: 1, o: 2, p: 3 }))
+    const sent = (await engine.fake!.requests.at(-1)!.json()) as Record<string, unknown>
+
+    expect(sent.top_p).toBe(0.5)
+    expect(sent).not.toHaveProperty('t')
+    expect(sent).not.toHaveProperty('o')
+    expect(sent).not.toHaveProperty('p')
+  })
 })
 
 describeFake('forwarding parity: the idempotency key', () => {

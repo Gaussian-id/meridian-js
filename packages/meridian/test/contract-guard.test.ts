@@ -16,7 +16,7 @@ import {
   type Environ,
   type RegistryEntries
 } from '../../../scripts/contract-guard.mjs'
-import { contractEngine } from './support/engine'
+import { contractEngine, describeFake, testEngine } from './support/engine'
 import {
   BOTH,
   GEMINI,
@@ -608,5 +608,18 @@ describe('contract guard: the engine contract tests talk to', () => {
     expect([engine.projectKey, engine.integratorKey]).toEqual([project, integrator])
     expect([engine.publicUrl, engine.adminUrl]).toEqual(['http://127.0.0.1:8180', 'http://127.0.0.1:8181'])
     expect(engine.fake).toBeNull()
+  })
+})
+
+// In process and fast; the child-vitest runs in both modes are in contract-mode.oracles.ts (pnpm test:oracles)
+describe('contract guard: which tests may reach the engine helper', () => {
+  it('fails an unmarked test that reaches it', () => {
+    expect(() => testEngine()).toThrow('without describeFake or describeEngine')
+  })
+
+  describeFake('a marked suite', () => {
+    it('gets the fake engine', () => {
+      expect(testEngine().fake).not.toBeNull()
+    })
   })
 })

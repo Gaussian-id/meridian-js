@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { format, inspect } from 'node:util'
 
 import { afterEach, beforeEach, expect, expectTypeOf, it, vi } from 'vitest'
 
@@ -443,5 +444,37 @@ describeFake('admin transport behaviour', () => {
     expect(data?.api_key).toEqual(expect.any(String))
     for (const spy of spies) expect(spy).not.toHaveBeenCalled()
     vi.restoreAllMocks()
+  })
+
+  it('hides the issued key from inspection and logging, and keeps it in JSON, spreads and the field', async () => {
+    const { ops } = admin()
+    const { data: org } = await ops.orgs.create({ name: 'n', external_reference: 'ref-4' })
+    const { data: project } = await ops.projects.create(org!.id, { name: 'p' })
+
+    const result = await ops.keys.create(org!.id, project!.id)
+    const key = result.data!.api_key
+
+    // [1] Hidden: util.inspect and console.log's formatting, nested in the result too, and Deno's console
+    for (const shown of [
+      inspect(result.data),
+      inspect(result, { depth: 5 }),
+      format(result.data),
+      format('%o', result)
+    ]) {
+      expect(shown).not.toContain(key)
+      expect(shown).toContain('[redacted]')
+    }
+
+    const deno = (result.data as unknown as Record<symbol, (i: typeof inspect, o: object) => string>)[
+      Symbol.for('Deno.customInspect')
+    ]!
+
+    expect(deno(inspect, {})).not.toContain(key)
+
+    // [2] Kept, on purpose: a plain field (no getter), JSON, a spread, and no extra enumerable member
+    expect(Object.getOwnPropertyDescriptor(result.data, 'api_key')).toMatchObject({ value: key, enumerable: true })
+    expect(JSON.parse(JSON.stringify(result.data)).api_key).toBe(key)
+    expect({ ...result.data }.api_key).toBe(key)
+    expect(Object.keys({ ...result.data })).toEqual(Object.keys(result.data!))
   })
 })

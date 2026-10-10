@@ -4,7 +4,9 @@ import {
   errorMember,
   HIDDEN_FORWARD_CODES,
   MALFORMED,
+  NOT_JSON,
   STATUS_BY_CODE,
+  strictJson,
   validRequestId,
   type MeridianError
 } from './internal/errors'
@@ -440,15 +442,13 @@ function parseBody(bytes: Uint8Array): Record<string, unknown> | Response {
 
   // [2] Counted before parsing, so a deep body never reaches the parser
   if (nestingDepth(text) > MAX_BODY_DEPTH) return refuse('invalid_request', 400, 'The body is nested too deeply.')
-  let body: unknown
 
-  try {
-    body = JSON.parse(text)
-  } catch {
-    return refuse('invalid_request', 400, 'The body must be JSON.')
-  }
+  // [3] Strict JSON: a number JSON cannot hold (1e999) is refused, never forwarded as null
+  const body = strictJson(text)
 
-  // [3] An object with a non-empty message list
+  if (body === NOT_JSON) return refuse('invalid_request', 400, 'The body must be JSON.')
+
+  // [4] An object with a non-empty message list
   const fields = body as Record<string, unknown> | null
 
   if (!fields || typeof fields !== 'object' || !Array.isArray(fields.messages) || fields.messages.length === 0) {
@@ -479,8 +479,10 @@ function allowedParams(body: Record<string, unknown>, allow: AllowRule): ChatPar
     params.model = model
   }
 
-  // [3] Further options only by name
-  for (const name of allow.options ?? []) {
+  // [3] Further options only by name (a bare string is one name, never its letters)
+  const options: readonly string[] = typeof allow.options === 'string' ? [allow.options] : (allow.options ?? [])
+
+  for (const name of options) {
     if (Object.hasOwn(body, name) && !NEVER_RAW.includes(name)) params[name] = body[name]
   }
 

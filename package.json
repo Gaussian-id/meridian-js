@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:oracles": "vitest run --config vitest.oracles.config.ts",
     "test:contract": "node scripts/contract.mjs",
     "spec:pin": "node scripts/pin-spec.mjs",
     "generate": "node scripts/generate-types.mjs",
@@ -20,7 +21,7 @@
     "check:bundle": "node scripts/check-browser-bundle.mjs",
     "smoke:runtime": "node scripts/runtime-smoke.mjs",
     "check:frameworks": "node scripts/check-framework-builds.mjs",
-    "gate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:drift && pnpm build && pnpm check:bundle && pnpm smoke:runtime && pnpm check:frameworks",
+    "gate": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:oracles && pnpm check:drift && pnpm build && pnpm check:bundle && pnpm smoke:runtime && pnpm check:frameworks",
     "prepare": "husky"
   },
   "lint-staged": {

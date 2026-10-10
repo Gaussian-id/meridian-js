@@ -1,4 +1,6 @@
-import { defineEventHandler, toWebRequest } from 'h3'
+import { Readable } from 'node:stream'
+
+import { defineEventHandler, getRequestURL, toWebRequest, type H3Event } from 'h3'
 
 import { createClient, type ClientOptions, type MeridianClient, type Result } from 'meridian'
 import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from 'meridian/server'
@@ -50,5 +52,38 @@ export function defineMeridianHandler(options: MeridianHandlerOptions) {
   })
 
   // [2] Nitro passes an event; the core speaks web Requests
-  return defineEventHandler(event => forward(toWebRequest(event)))
+  return defineEventHandler(event => forward(event.web?.request ?? nodeRequest(event)))
+}
+
+/** h3 marks a Node request whose body something already read; h3's own reader replays it. */
+const READ_BODY = [Symbol.for('h3RawBody'), 'rawBody', 'body', '__unenv__'] as const
+
+/**
+ * The web Request for an event on a Node server. Its body pulls from the Node request (backpressure; the core's cancel
+ * at the 8 MiB cap stops reading instead of crashing h3's push stream), and its signal aborts when the response closes
+ * before it finished, so a browser that leaves closes the engine stream.
+ */
+function nodeRequest(event: H3Event): Request {
+  const { req, res } = event.node
+  const controller = new AbortController()
+
+  res.on('close', () => {
+    if (!res.writableFinished) controller.abort()
+  })
+
+  // A body something already read (or none, for GET and the like) goes through h3's own reader
+  if (event.method !== 'POST' || READ_BODY.some(mark => mark in req)) {
+    return new Request(toWebRequest(event), { signal: controller.signal })
+  }
+
+  // Node's fetch needs duplex for a streamed body; lib.dom does not know it yet
+  const init: RequestInit & { duplex: 'half' } = {
+    method: event.method,
+    headers: event.headers,
+    body: Readable.toWeb(req) as ReadableStream<Uint8Array>,
+    signal: controller.signal,
+    duplex: 'half'
+  }
+
+  return new Request(getRequestURL(event), init)
 }

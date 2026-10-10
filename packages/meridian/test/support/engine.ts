@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { describe } from 'vitest'
-import { getCurrentSuite, getCurrentTest } from 'vitest/suite'
+import { describe, TestRunner } from 'vitest'
 
 import {
   DEFAULT_URLS,
@@ -62,8 +61,8 @@ export function contractEngine(environ: Environ, options?: { registry?: () => Re
 
 /** The engine for one test. A test (or suite) outside describeFake and describeEngine gets neither. */
 export function testEngine(adminRouter?: AdminRouter): TestEngine {
-  const test = getCurrentTest()
-  const tags = test ? test.tags : getCurrentSuite()?.suite?.tags
+  const test = TestRunner.getCurrentTest()
+  const tags = test ? test.tags : TestRunner.getCurrentSuite()?.suite?.tags
 
   if (!tags?.some(tag => tag === 'fake' || tag === 'contract')) {
     throw new Error(`${test?.fullTestName ?? 'a suite'} uses the engine without describeFake or describeEngine`)

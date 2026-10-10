@@ -210,7 +210,7 @@ async function bashReader(): Promise<Reader | string> {
   if (!bash) return 'bash is not on PATH'
 
   if (process.platform === 'win32' && isInside(process.env.SYSTEMROOT ?? 'C:\\Windows', bash)) {
-    return 'the bash on PATH is the WSL launcher, which cannot read these Windows paths'
+    return 'the bash on PATH is the WSL launcher (as from PowerShell), which cannot read these Windows paths: run pnpm test:oracles from Git Bash'
   }
 
   return scriptReader([bash, join(SUPPORT, 'env_value.sh').replaceAll('\\', '/')], 'bash')
