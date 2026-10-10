@@ -8,7 +8,7 @@ import { createAdminClient } from 'meridian/admin'
 import { createClient } from 'meridian'
 import { createForwardHandler } from 'meridian/server'
 
-import { describeSimulator, testEngine } from './support/engine'
+import { contractEngine, describeSimulator } from './support/engine'
 
 const messages = [{ role: 'user' as const, content: 'hello' }]
 const PIECES = Array.from({ length: 10 }, (_, at) => `sim token ${at + 1}`)
@@ -17,7 +17,9 @@ const REVOKED = ['invalid_api_key', 'key_revoked']
 const unique = () => `contract-${crypto.randomUUID()}`
 
 function clients() {
-  const engine = testEngine()
+  // Not testEngine(): beforeAll has no test or tag to vouch for it. This file runs only in contract mode, so it asks
+  // for the real engine directly, behind the same guard.
+  const engine = contractEngine(process.env)
 
   return {
     engine,

@@ -49,7 +49,7 @@ describeEngine('createAdminClient', () => {
   })
 
   it('sets a project model allowlist and BYOK credential without echoing the secret', async () => {
-    const { ops } = admin()
+    const { engine, ops } = admin()
     const { data: org } = await ops.orgs.create({ name: 'SDK byok', external_reference: unique() })
     const { data: project } = await ops.projects.create(org!.id, { name: 'p' })
 
@@ -62,7 +62,17 @@ describeEngine('createAdminClient', () => {
 
     expect(set.error).toBeNull()
     expect(JSON.stringify(credential.data)).not.toContain('test-credential-0000')
-    expect(await ops.providerCredentials.delete(org!.id, 'gemini')).toEqual({ data: null, error: null })
+    expect(JSON.stringify(credential.error)).not.toContain('test-credential-0000')
+
+    if (engine.fake || credential.error === null) {
+      expect(await ops.providerCredentials.delete(org!.id, 'gemini')).toEqual({ data: null, error: null })
+    } else {
+      // Engine finding: the local engine has no GAUSSMERIDIAN_BYOK_KEY, so it cannot seal a credential and the put is
+      // refused. Nothing was stored, so the delete is answered not_found (byok.rs delete: THROW when no row exists).
+      expect(await ops.providerCredentials.delete(org!.id, 'gemini')).toMatchObject({
+        error: { code: 'not_found', status: 404 }
+      })
+    }
   })
 
   it('answers not_found for an organisation outside its scope', async () => {

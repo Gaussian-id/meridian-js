@@ -590,7 +590,10 @@ describeEngine('createForwardHandler setup errors', () => {
     expect(error?.type).toBe('client_error')
     expect(error?.message).toMatch(/key/i)
   })
+})
 
+// Scripts a refusal the real engine cannot be told to produce, so it is fake-only
+describeFake('createForwardHandler hidden codes in the browser client', () => {
   it('marks the forwarded hidden-code and generic errors as not retryable in the browser client', async () => {
     const { engine, handler } = setup()
 
