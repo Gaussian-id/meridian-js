@@ -1,5 +1,5 @@
 {
-  "name": "@gaussian/meridian",
+  "name": "@gaussian-id/meridian",
   "version": "0.1.0",
   "description": "The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.",
   "keywords": [

@@ -1,1 +1,1 @@
-export default defineNuxtConfig({ modules: ['@gaussian/meridian-nuxt'], compatibilityDate: '2026-10-09' })
+export default defineNuxtConfig({ modules: ['@gaussian-id/meridian-nuxt'], compatibilityDate: '2026-10-09' })

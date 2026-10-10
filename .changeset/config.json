@@ -2,7 +2,9 @@
   "$schema": "https://unpkg.com/@changesets/config/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [["@gaussian/meridian", "@gaussian/meridian-next", "@gaussian/meridian-nuxt", "@gaussian/meridian-expo"]],
+  "fixed": [
+    ["@gaussian-id/meridian", "@gaussian-id/meridian-next", "@gaussian-id/meridian-nuxt", "@gaussian-id/meridian-expo"]
+  ],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

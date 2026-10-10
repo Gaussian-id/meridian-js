@@ -5,16 +5,16 @@
   </picture>
 </p>
 
-# @gaussian/meridian-next
+# @gaussian-id/meridian-next
 
-Gauss Meridian for Next.js: a server-side client, App Router and Pages Router forwarding handlers, and a keyless browser client. It builds on [`@gaussian/meridian`](https://www.npmjs.com/package/@gaussian/meridian).
+Gauss Meridian for Next.js: a server-side client, App Router and Pages Router forwarding handlers, and a keyless browser client. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
 > **Status:** Public preview, v0.1.0. Peer dependencies: `next >= 14`, `react >= 18`, `react-dom >= 18`.
 
 ## Install
 
 ```bash
-pnpm add @gaussian/meridian @gaussian/meridian-next
+pnpm add @gaussian-id/meridian @gaussian-id/meridian-next
 ```
 
 ## Usage
@@ -23,27 +23,27 @@ Set `MERIDIAN_URL` and `MERIDIAN_KEY` (a `gmr_` project key) on the server. The 
 
 ```ts
 // app/api/meridian/chat/route.ts (App Router)
-import { createRouteHandler } from '@gaussian/meridian-next'
+import { createRouteHandler } from '@gaussian-id/meridian-next'
 
 export const { POST } = createRouteHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
 ```ts
 // pages/api/meridian/chat.ts (Pages Router)
-import { createPagesHandler } from '@gaussian/meridian-next/pages'
+import { createPagesHandler } from '@gaussian-id/meridian-next/pages'
 
 export default createPagesHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
-In components, use `createBrowserClient()` from `@gaussian/meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` (from `@gaussian/meridian-next`) gives a server client for route handlers and server actions.
+In components, use `createBrowserClient()` from `@gaussian-id/meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` (from `@gaussian-id/meridian-next`) gives a server client for route handlers and server actions.
 
 ## Entry points
 
-| Entry                             | Main export                                |
-| --------------------------------- | ------------------------------------------ |
-| `@gaussian/meridian-next`         | `createRouteHandler`, `createServerClient` |
-| `@gaussian/meridian-next/pages`   | `createPagesHandler`                       |
-| `@gaussian/meridian-next/browser` | `createBrowserClient`                      |
+| Entry                                | Main export                                |
+| ------------------------------------ | ------------------------------------------ |
+| `@gaussian-id/meridian-next`         | `createRouteHandler`, `createServerClient` |
+| `@gaussian-id/meridian-next/pages`   | `createPagesHandler`                       |
+| `@gaussian-id/meridian-next/browser` | `createBrowserClient`                      |
 
 ## Documentation
 

@@ -21,7 +21,7 @@ for (const [format, ext] of [
   const meta = JSON.parse(readFileSync(`${DIST}/metafile-${format}.json`, "utf8"));
   const browser = Object.entries(meta.outputs).find(([file]) => file.endsWith(`browser.${ext}`));
 
-  if (!browser) fail(`No browser.${ext} in the @gaussian/meridian ${format} build.`);
+  if (!browser) fail(`No browser.${ext} in the @gaussian-id/meridian ${format} build.`);
 
   const leaked = Object.keys(browser[1].inputs).filter((input) =>
     forbiddenModules.some((path) => input.endsWith(path)),
@@ -39,14 +39,14 @@ for (const [format, ext] of [
 
 console.log("Browser bundle holds no server or admin client.");
 
-// [4] @gaussian/meridian-next's browser entry must import only @gaussian/meridian/browser, never the core root
+// [4] @gaussian-id/meridian-next's browser entry must import only @gaussian-id/meridian/browser, never the core root
 for (const [file, pattern] of [
-  ["browser.js", /from\s*["']@gaussian\/meridian["']/],
-  ["browser.cjs", /require\(["']@gaussian\/meridian["']\)/],
+  ["browser.js", /from\s*["']@gaussian-id\/meridian["']/],
+  ["browser.cjs", /require\(["']@gaussian-id\/meridian["']\)/],
 ]) {
   const code = readFileSync(`packages/meridian-next/dist/${file}`, "utf8");
 
-  if (pattern.test(code)) fail(`@gaussian/meridian-next/${file} imports the server-side core.`);
+  if (pattern.test(code)) fail(`@gaussian-id/meridian-next/${file} imports the server-side core.`);
 }
 
-console.log("@gaussian/meridian-next browser entry imports only @gaussian/meridian/browser.");
+console.log("@gaussian-id/meridian-next browser entry imports only @gaussian-id/meridian/browser.");

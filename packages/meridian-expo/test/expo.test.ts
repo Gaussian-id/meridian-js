@@ -1,13 +1,13 @@
 import { expect, it, vi } from 'vitest'
 
-import { createClient } from '@gaussian/meridian'
-import { createForwardHandler } from '@gaussian/meridian/server'
+import { createClient } from '@gaussian-id/meridian'
+import { createForwardHandler } from '@gaussian-id/meridian/server'
 
-import { createBrowserClient } from '@gaussian/meridian-expo'
+import { createBrowserClient } from '@gaussian-id/meridian-expo'
 
 import { describeEngine, testEngine } from '../../meridian/test/support/engine'
 
-describeEngine('@gaussian/meridian-expo', () => {
+describeEngine('@gaussian-id/meridian-expo', () => {
   it('streams from the app backend', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })

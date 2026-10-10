@@ -1,5 +1,5 @@
 {
-  "name": "@gaussian/meridian-expo",
+  "name": "@gaussian-id/meridian-expo",
   "version": "0.1.0",
   "description": "Gauss Meridian for Expo and React Native: a keyless client that calls your own server route.",
   "keywords": [
@@ -47,7 +47,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "@gaussian/meridian": "workspace:*"
+    "@gaussian-id/meridian": "workspace:*"
   },
   "peerDependencies": {
     "expo": ">=52"

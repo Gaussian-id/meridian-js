@@ -5,16 +5,16 @@
   </picture>
 </p>
 
-# @gaussian/meridian-expo
+# @gaussian-id/meridian-expo
 
-Gauss Meridian for Expo and React Native: a keyless client that calls your own server route. It builds on [`@gaussian/meridian`](https://www.npmjs.com/package/@gaussian/meridian).
+Gauss Meridian for Expo and React Native: a keyless client that calls your own server route. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
 > **Status:** Public preview, v0.1.0. Peer dependency: `expo >= 52`.
 
 ## Install
 
 ```bash
-pnpm add @gaussian/meridian @gaussian/meridian-expo
+pnpm add @gaussian-id/meridian @gaussian-id/meridian-expo
 ```
 
 ## Usage
@@ -22,12 +22,12 @@ pnpm add @gaussian/meridian @gaussian/meridian-expo
 A mobile app has no page origin and never holds a key. Pass the **absolute** URL of your backend's forwarding route (a relative one is refused):
 
 ```ts
-import { createBrowserClient } from '@gaussian/meridian-expo'
+import { createBrowserClient } from '@gaussian-id/meridian-expo'
 
 const meridian = createBrowserClient({ route: 'https://api.example.com/api/meridian/chat' })
 ```
 
-It streams over Expo's fetch. The backend route is any `@gaussian/meridian/server` forwarding handler (`createForwardHandler`), which holds the `gmr_` key on your server.
+It streams over Expo's fetch. The backend route is any `@gaussian-id/meridian/server` forwarding handler (`createForwardHandler`), which holds the `gmr_` key on your server.
 
 ## Documentation
 

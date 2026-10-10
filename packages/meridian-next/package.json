@@ -1,5 +1,5 @@
 {
-  "name": "@gaussian/meridian-next",
+  "name": "@gaussian-id/meridian-next",
   "version": "0.1.0",
   "description": "Gauss Meridian for Next.js: server-side client, Pages Router helpers and a keyless browser client.",
   "keywords": [
@@ -68,7 +68,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "@gaussian/meridian": "workspace:*",
+    "@gaussian-id/meridian": "workspace:*",
     "server-only": "^0.0.1"
   },
   "peerDependencies": {

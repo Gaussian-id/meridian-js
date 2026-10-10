@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   splitting: false,
   clean: true,
-  external: ['@gaussian/meridian', 'nuxt', 'h3', '#imports']
+  external: ['@gaussian-id/meridian', 'nuxt', 'h3', '#imports']
 })

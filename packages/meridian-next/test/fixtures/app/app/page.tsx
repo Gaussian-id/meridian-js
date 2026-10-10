@@ -1,6 +1,6 @@
 'use client'
 
-import { createBrowserClient } from '@gaussian/meridian-next/browser'
+import { createBrowserClient } from '@gaussian-id/meridian-next/browser'
 
 const meridian = createBrowserClient()
 

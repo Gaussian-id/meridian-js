@@ -2,14 +2,14 @@ import { Readable } from 'node:stream'
 
 import { defineEventHandler, getRequestURL, toWebRequest, type H3Event } from 'h3'
 
-import { createClient, type ClientOptions, type MeridianClient, type Result } from '@gaussian/meridian'
-import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from '@gaussian/meridian/server'
+import { createClient, type ClientOptions, type MeridianClient, type Result } from '@gaussian-id/meridian'
+import { createForwardHandler, type AllowRule, type ForwardHandlerOptions } from '@gaussian-id/meridian/server'
 
 import { useRuntimeConfig } from '#imports'
 
 // Also the marker scripts/check-framework-builds.mjs looks for in client bundles
 const MISSING_CONFIG_HINT =
-  '@gaussian/meridian-nuxt: set runtimeConfig.meridian.url and .key (NUXT_MERIDIAN_URL, NUXT_MERIDIAN_KEY)'
+  '@gaussian-id/meridian-nuxt: set runtimeConfig.meridian.url and .key (NUXT_MERIDIAN_URL, NUXT_MERIDIAN_KEY)'
 
 /** Adds the hint to a configuration error the core returned; other results pass through. */
 async function withHint<T>(result: Promise<Result<T>>): Promise<Result<T>> {

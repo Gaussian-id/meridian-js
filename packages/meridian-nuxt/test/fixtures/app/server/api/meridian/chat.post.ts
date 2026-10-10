@@ -1,3 +1,3 @@
-import { defineMeridianHandler } from '@gaussian/meridian-nuxt/server'
+import { defineMeridianHandler } from '@gaussian-id/meridian-nuxt/server'
 
 export default defineMeridianHandler({ authorize: () => true })

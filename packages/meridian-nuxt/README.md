@@ -5,16 +5,16 @@
   </picture>
 </p>
 
-# @gaussian/meridian-nuxt
+# @gaussian-id/meridian-nuxt
 
-Gauss Meridian for Nuxt: a Nuxt module with a server client, a forwarding handler and a keyless composable. It builds on [`@gaussian/meridian`](https://www.npmjs.com/package/@gaussian/meridian).
+Gauss Meridian for Nuxt: a Nuxt module with a server client, a forwarding handler and a keyless composable. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
 > **Status:** Public preview, v0.1.0. Peer dependencies: `nuxt >= 3.13`, `h3 >= 1.12 < 2`.
 
 ## Install
 
 ```bash
-pnpm add @gaussian/meridian @gaussian/meridian-nuxt
+pnpm add @gaussian-id/meridian @gaussian-id/meridian-nuxt
 ```
 
 ## Usage
@@ -23,23 +23,23 @@ Add the module and set the private runtime config `NUXT_MERIDIAN_URL` and `NUXT_
 
 ```ts
 // nuxt.config.ts
-export default defineNuxtConfig({ modules: ['@gaussian/meridian-nuxt'] })
+export default defineNuxtConfig({ modules: ['@gaussian-id/meridian-nuxt'] })
 
 // server/api/meridian/chat.post.ts
-import { defineMeridianHandler } from '@gaussian/meridian-nuxt/server'
+import { defineMeridianHandler } from '@gaussian-id/meridian-nuxt/server'
 
 export default defineMeridianHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
-In components, call `useMeridian()`; it is preset to `/api/meridian/chat` and is auto-imported by the module. In Nitro server routes, `useMeridianServerClient()` (from `@gaussian/meridian-nuxt/server`) gives a server client built from the runtime config.
+In components, call `useMeridian()`; it is preset to `/api/meridian/chat` and is auto-imported by the module. In Nitro server routes, `useMeridianServerClient()` (from `@gaussian-id/meridian-nuxt/server`) gives a server client built from the runtime config.
 
 ## Entry points
 
-| Entry                                 | Main export                                        |
-| ------------------------------------- | -------------------------------------------------- |
-| `@gaussian/meridian-nuxt`             | the Nuxt module                                    |
-| `@gaussian/meridian-nuxt/server`      | `defineMeridianHandler`, `useMeridianServerClient` |
-| `@gaussian/meridian-nuxt/composables` | `useMeridian`                                      |
+| Entry                                    | Main export                                        |
+| ---------------------------------------- | -------------------------------------------------- |
+| `@gaussian-id/meridian-nuxt`             | the Nuxt module                                    |
+| `@gaussian-id/meridian-nuxt/server`      | `defineMeridianHandler`, `useMeridianServerClient` |
+| `@gaussian-id/meridian-nuxt/composables` | `useMeridian`                                      |
 
 ## Documentation
 

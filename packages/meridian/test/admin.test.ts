@@ -3,7 +3,7 @@ import { format, inspect } from 'node:util'
 
 import { afterEach, beforeEach, expect, expectTypeOf, it, vi } from 'vitest'
 
-import { createAdminClient, type AdminClient } from '@gaussian/meridian/admin'
+import { createAdminClient, type AdminClient } from '@gaussian-id/meridian/admin'
 
 import type { components } from '../src/generated/admin'
 import { withoutPrices, type WithoutPrices } from '../src/internal/cost-opacity'

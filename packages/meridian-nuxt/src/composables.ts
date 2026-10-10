@@ -3,7 +3,7 @@ import {
   DEFAULT_ROUTE,
   type BrowserClient,
   type BrowserClientOptions
-} from '@gaussian/meridian/browser'
+} from '@gaussian-id/meridian/browser'
 
 /** The browser client for Vue components, preset to the route defineMeridianHandler serves. */
 export function useMeridian(options: BrowserClientOptions = {}): BrowserClient {

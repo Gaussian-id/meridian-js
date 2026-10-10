@@ -3,7 +3,7 @@ import type { NuxtModule } from 'nuxt/schema'
 
 /** Registers private runtime config for the server client and auto-imports useMeridian(). */
 const meridianModule: NuxtModule<Record<string, unknown>> = defineNuxtModule({
-  meta: { name: '@gaussian/meridian-nuxt', configKey: 'meridian' },
+  meta: { name: '@gaussian-id/meridian-nuxt', configKey: 'meridian' },
   setup(_options, nuxt) {
     // [1] Private runtime config: NUXT_MERIDIAN_URL and NUXT_MERIDIAN_KEY, never sent to the browser
     nuxt.options.runtimeConfig.meridian = { url: '', key: '', ...(nuxt.options.runtimeConfig.meridian as object) }

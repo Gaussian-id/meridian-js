@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
-import { createClient } from '@gaussian/meridian'
-import type { ChatParams } from '@gaussian/meridian'
+import { createClient } from '@gaussian-id/meridian'
+import type { ChatParams } from '@gaussian-id/meridian'
 
 import { describeEngine, describeFake, testEngine } from './support/engine'
 import { engineError } from './support/fake-engine'

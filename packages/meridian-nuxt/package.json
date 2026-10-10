@@ -1,5 +1,5 @@
 {
-  "name": "@gaussian/meridian-nuxt",
+  "name": "@gaussian-id/meridian-nuxt",
   "version": "0.1.0",
   "description": "Gauss Meridian for Nuxt: a Nuxt module with a server client and composables.",
   "keywords": [
@@ -48,7 +48,7 @@
     "build": "tsup"
   },
   "dependencies": {
-    "@gaussian/meridian": "workspace:*"
+    "@gaussian-id/meridian": "workspace:*"
   },
   "peerDependencies": {
     "nuxt": ">=3.13",

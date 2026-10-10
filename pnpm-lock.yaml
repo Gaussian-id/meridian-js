@@ -61,7 +61,7 @@ importers:
 
   packages/meridian-expo:
     dependencies:
-      '@gaussian/meridian':
+      '@gaussian-id/meridian':
         specifier: workspace:*
         version: link:../meridian
     devDependencies:
@@ -71,7 +71,7 @@ importers:
 
   packages/meridian-next:
     dependencies:
-      '@gaussian/meridian':
+      '@gaussian-id/meridian':
         specifier: workspace:*
         version: link:../meridian
       server-only:
@@ -93,7 +93,7 @@ importers:
 
   packages/meridian-next/test/fixtures/app:
     dependencies:
-      '@gaussian/meridian-next':
+      '@gaussian-id/meridian-next':
         specifier: workspace:*
         version: link:../../..
       next:
@@ -112,7 +112,7 @@ importers:
 
   packages/meridian-next/test/fixtures/leak:
     dependencies:
-      '@gaussian/meridian-next':
+      '@gaussian-id/meridian-next':
         specifier: workspace:*
         version: link:../../..
       next:
@@ -131,7 +131,7 @@ importers:
 
   packages/meridian-nuxt:
     dependencies:
-      '@gaussian/meridian':
+      '@gaussian-id/meridian':
         specifier: workspace:*
         version: link:../meridian
     devDependencies:
@@ -147,7 +147,7 @@ importers:
 
   packages/meridian-nuxt/test/fixtures/app:
     dependencies:
-      '@gaussian/meridian-nuxt':
+      '@gaussian-id/meridian-nuxt':
         specifier: workspace:*
         version: link:../../..
       h3:
@@ -162,7 +162,7 @@ importers:
 
   packages/meridian-nuxt/test/fixtures/leak:
     dependencies:
-      '@gaussian/meridian-nuxt':
+      '@gaussian-id/meridian-nuxt':
         specifier: workspace:*
         version: link:../../..
       h3:

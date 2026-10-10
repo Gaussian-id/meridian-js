@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createClient } from '@gaussian/meridian'
-import { createBrowserClient } from '@gaussian/meridian/browser'
-import { createForwardHandler } from '@gaussian/meridian/server'
+import { createClient } from '@gaussian-id/meridian'
+import { createBrowserClient } from '@gaussian-id/meridian/browser'
+import { createForwardHandler } from '@gaussian-id/meridian/server'
 
 import { describeFake, testEngine } from './support/engine'
 

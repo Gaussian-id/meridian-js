@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { describe, expect, it } from 'vitest'
 
-import { ENGINE_API_VERSION, ENGINE_SPEC_COMMIT } from '@gaussian/meridian'
+import { ENGINE_API_VERSION, ENGINE_SPEC_COMMIT } from '@gaussian-id/meridian'
 
 const source = JSON.parse(readFileSync(new URL('../../../spec/SOURCE.json', import.meta.url), 'utf8')) as {
   engineCommit: string

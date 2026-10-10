@@ -4,18 +4,18 @@ import type { AddressInfo } from 'node:net'
 import { createApp, defineEventHandler, readRawBody, toNodeListener, toWebHandler, type EventHandler } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { createClient } from '@gaussian/meridian'
+import { createClient } from '@gaussian-id/meridian'
 
-import { useMeridian } from '@gaussian/meridian-nuxt/composables'
+import { useMeridian } from '@gaussian-id/meridian-nuxt/composables'
 import {
   defineMeridianHandler,
   useMeridianServerClient,
   type MeridianHandlerOptions
-} from '@gaussian/meridian-nuxt/server'
+} from '@gaussian-id/meridian-nuxt/server'
 
 import { describeEngine, testEngine } from '../../meridian/test/support/engine'
 
-describeEngine('@gaussian/meridian-nuxt', () => {
+describeEngine('@gaussian-id/meridian-nuxt', () => {
   it('serves a forwarding route as a Nitro handler that streams', async () => {
     const engine = testEngine()
     const client = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
@@ -128,7 +128,7 @@ describeEngine('@gaussian/meridian-nuxt', () => {
 })
 
 // The handler as Nitro runs it on Node: a real server on loopback, no web Request on the event
-describe('@gaussian/meridian-nuxt on a Node server (toNodeListener)', () => {
+describe('@gaussian-id/meridian-nuxt on a Node server (toNodeListener)', () => {
   let server: Server | undefined
   const uncaught: unknown[] = []
   const record = (error: unknown) => uncaught.push(error)

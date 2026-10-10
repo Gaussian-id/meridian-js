@@ -4,9 +4,9 @@ import {
   createBrowserClient as createCoreBrowserClient,
   type BrowserClient,
   type BrowserClientOptions
-} from '@gaussian/meridian/browser'
+} from '@gaussian-id/meridian/browser'
 
-export type { BrowserClient } from '@gaussian/meridian/browser'
+export type { BrowserClient } from '@gaussian-id/meridian/browser'
 
 /** `route` is the absolute URL of your backend's forwarding route; the app never holds a Meridian key. */
 export interface ExpoClientOptions extends Omit<BrowserClientOptions, 'route'> {

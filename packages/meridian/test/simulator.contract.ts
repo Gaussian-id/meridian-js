@@ -4,9 +4,9 @@
 
 import { beforeAll, expect, it } from 'vitest'
 
-import { createAdminClient } from '@gaussian/meridian/admin'
-import { createClient } from '@gaussian/meridian'
-import { createForwardHandler } from '@gaussian/meridian/server'
+import { createAdminClient } from '@gaussian-id/meridian/admin'
+import { createClient } from '@gaussian-id/meridian'
+import { createForwardHandler } from '@gaussian-id/meridian/server'
 
 import { contractEngine, describeSimulator } from './support/engine'
 
