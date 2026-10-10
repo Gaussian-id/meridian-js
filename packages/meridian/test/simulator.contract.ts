@@ -13,7 +13,10 @@ import { contractEngine, describeSimulator } from './support/engine'
 const messages = [{ role: 'user' as const, content: 'hello' }]
 const PIECES = Array.from({ length: 10 }, (_, at) => `sim token ${at + 1}`)
 const FIXED = PIECES.join('')
-const REVOKED = ['invalid_api_key', 'key_revoked']
+
+// The engine keeps a revoked key's hash and answers key_revoked; both key codes must stay hidden from a browser
+const REVOKED = ['key_revoked']
+const KEY_CODES = ['invalid_api_key', 'key_revoked']
 const unique = () => `contract-${crypto.randomUUID()}`
 
 function clients() {
@@ -171,7 +174,7 @@ describeSimulator('simulator contract', () => {
     expect(JSON.parse(text)).toMatchObject({
       error: { message: 'The service is temporarily unavailable.', code: 'service_unavailable', retryable: false }
     })
-    for (const code of REVOKED) expect(text).not.toContain(code)
+    for (const code of KEY_CODES) expect(text).not.toContain(code)
     expect(REVOKED).toContain(direct.error?.code)
   })
 

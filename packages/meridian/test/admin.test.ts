@@ -64,9 +64,13 @@ describeEngine('createAdminClient', () => {
     expect(JSON.stringify(credential.data)).not.toContain('test-credential-0000')
     expect(JSON.stringify(credential.error)).not.toContain('test-credential-0000')
 
-    if (engine.fake || credential.error === null) {
+    if (engine.fake) {
+      expect(credential.error).toBeNull()
       expect(await ops.providerCredentials.delete(org!.id, 'gemini')).toEqual({ data: null, error: null })
     } else {
+      // The local engine refuses to seal with no BYOK key: AdminError::Unavailable → service_unavailable 503
+      expect(credential.error).toMatchObject({ code: 'service_unavailable', status: 503 })
+
       // Engine finding: the local engine has no GAUSSMERIDIAN_BYOK_KEY, so it cannot seal a credential and the put is
       // refused. Nothing was stored, so the delete is answered not_found (byok.rs delete: THROW when no row exists).
       expect(await ops.providerCredentials.delete(org!.id, 'gemini')).toMatchObject({
