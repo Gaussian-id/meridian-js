@@ -23,6 +23,7 @@ import {
   GEMINI,
   HIDING,
   label,
+  NEW_KEYS,
   NOT_SET_FOR_ANY_READER,
   OPENROUTER,
   PRINTABLE,
@@ -288,6 +289,25 @@ describe('contract guard: the whole judgement', () => {
     expect(message).toContain(GEMINI)
     expect(message).not.toContain(SECRET)
     expect(judge({ ...environ, [OPENROUTER]: '' })).toBeNull()
+  })
+
+  it.each(NEW_KEYS)('refuses %s set in the env file, by name', name => {
+    const message = judge(runtimeWith(`A=1\n${name}=${SECRET}\n`).environ)
+
+    expect(message).toContain(name)
+    expect(message).not.toContain(SECRET)
+    expect(judge(runtimeWith(`${name}=\n`).environ)).toBeNull()
+    expect(paidKeysIn(`${name}=${SECRET}`)).toEqual([name])
+  })
+
+  it.each(NEW_KEYS)('refuses %s set in the process environment, by name', name => {
+    const { environ } = runtimeWith()
+    const message = judge({ ...environ, [name.toLowerCase()]: SECRET })
+
+    expect(message).toContain(name)
+    expect(message).not.toContain(SECRET)
+    expect(judge({ ...environ, [name]: '' })).toBeNull()
+    expect(paidKeysInEnviron({ [name]: 'x' })).toEqual([name])
   })
 
   it('names both sources together', () => {

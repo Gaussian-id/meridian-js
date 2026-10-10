@@ -4,8 +4,17 @@
 export const GEMINI = 'GAUSSMERIDIAN_GEMINI_API_KEY'
 export const OPENROUTER = 'GAUSSMERIDIAN_OPENROUTER_API_KEY'
 
-/** What a text that cannot be checked reports. */
-export const BOTH = [GEMINI, OPENROUTER]
+export const NEW_KEYS = [
+  'GAUSSMERIDIAN_OPENAI_API_KEY',
+  'GAUSSMERIDIAN_ANTHROPIC_API_KEY',
+  'GAUSSMERIDIAN_XAI_API_KEY',
+  'GAUSSMERIDIAN_DEEPSEEK_API_KEY',
+  'GAUSSMERIDIAN_MISTRAL_API_KEY',
+  'GAUSSMERIDIAN_QWEN_API_KEY'
+]
+
+/** What a text that cannot be checked reports: every paid name (the historical name BOTH is kept). */
+export const BOTH = [GEMINI, OPENROUTER, ...NEW_KEYS]
 
 const KELVIN = 'K'
 const LONG_S = 'ſ'
@@ -266,7 +275,7 @@ const ROUND_3: Record<string, string> = {
   'r3-backtick-hash': `A=\`x\n# ${GEMINI}=FAKER3Q\n\`\n`
 }
 
-for (const name of BOTH) {
+for (const name of [GEMINI, OPENROUTER]) {
   ;[...name].forEach((letter, at) => {
     if (letter === 'I')
       ROUND_3[`r3-dotted-${name[14]}-${at}`] = `${name.slice(0, at)}${DOTTED}${name.slice(at + 1)}=FAKEDOT\n`
