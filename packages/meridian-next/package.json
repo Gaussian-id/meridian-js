@@ -1,12 +1,36 @@
 {
   "name": "@gaussian/meridian-next",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Gauss Meridian for Next.js: server-side client, Pages Router helpers and a keyless browser client.",
+  "keywords": [
+    "meridian",
+    "gauss",
+    "gaussian",
+    "ai",
+    "llm",
+    "sdk",
+    "nextjs",
+    "next"
+  ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gaussian-id/meridian-js.git",
+    "directory": "packages/meridian-next"
+  },
+  "homepage": "https://github.com/Gaussian-id/meridian-js#readme",
+  "bugs": {
+    "url": "https://github.com/Gaussian-id/meridian-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "!dist/metafile-*.json",
+    "LICENSE"
   ],
   "exports": {
     ".": {

@@ -1,12 +1,35 @@
 {
   "name": "@gaussian/meridian-expo",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Gauss Meridian for Expo and React Native: a keyless client that calls your own server route.",
+  "keywords": [
+    "meridian",
+    "gauss",
+    "gaussian",
+    "ai",
+    "llm",
+    "sdk",
+    "expo",
+    "react-native"
+  ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gaussian-id/meridian-js.git",
+    "directory": "packages/meridian-expo"
+  },
+  "homepage": "https://github.com/Gaussian-id/meridian-js#readme",
+  "bugs": {
+    "url": "https://github.com/Gaussian-id/meridian-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "exports": {
     ".": {

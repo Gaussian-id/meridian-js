@@ -1,15 +1,39 @@
 {
   "name": "@gaussian/meridian",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.",
+  "keywords": [
+    "meridian",
+    "gauss",
+    "gaussian",
+    "ai",
+    "llm",
+    "sdk",
+    "routing",
+    "typescript"
+  ],
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gaussian-id/meridian-js.git",
+    "directory": "packages/meridian"
+  },
+  "homepage": "https://github.com/Gaussian-id/meridian-js#readme",
+  "bugs": {
+    "url": "https://github.com/Gaussian-id/meridian-js/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "sideEffects": false,
   "engines": {
     "node": ">=18"
   },
   "files": [
-    "dist"
+    "dist",
+    "!dist/metafile-*.json",
+    "LICENSE"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

@@ -9,7 +9,7 @@
 
 The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.
 
-> **Status:** private and unpublished. Every package is `"private": true` at version `0.0.0`; the package names are `@gaussian/meridian`, `@gaussian/meridian-next`, `@gaussian/meridian-nuxt` and `@gaussian/meridian-expo` (owner decision, 10 Oct), but none can be installed from a registry yet (O47). Runtime floor: Node 18 (`engines.node >= 18`). The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
+> **Status:** Public preview, v0.1.0. Runtime floor: Node 18 (`engines.node >= 18`). The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
 
 ## Contents
 
@@ -45,23 +45,6 @@ The official TypeScript SDK for Gauss Meridian: one API for many AI models, rout
 Keys never go in the browser. `createClient` and `createAdminClient` refuse to run in a browser or React Native.
 
 ## Install
-
-Until the first release (O47) nothing is on a registry. Install from a checkout:
-
-```bash
-git clone <this repository> meridian-js
-cd meridian-js
-pnpm install
-pnpm build
-```
-
-Then point your app at the built package folder (the packages ship `dist` only, so build first):
-
-```bash
-pnpm add link:/path/to/meridian-js/packages/meridian
-```
-
-After the first release the install commands will be:
 
 ```bash
 npm install @gaussian/meridian
