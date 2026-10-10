@@ -179,3 +179,105 @@ describeEngine('transport timeouts', () => {
     expect(data).not.toBeNull()
   })
 })
+
+describeFake('transport: replies that are not Meridian errors, and waits', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  const settle = async <T>(pending: Promise<T>) => {
+    await vi.runAllTimersAsync()
+
+    return pending
+  }
+
+  it('takes a non-Meridian 429 as a retryable network_error with its status, and retries it', async () => {
+    const engine = testEngine()
+
+    engine.fake!.next({ status: 429, text: 'Too Many Requests' }, { status: 429, text: 'Too Many Requests' })
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch, maxRetries: 1 })
+    const { error } = await settle(meridian.chat.create({ messages }))
+
+    expect(error).toMatchObject({ code: 'network_error', type: 'client_error', status: 429, retryable: true })
+    expect(engine.fake!.requests).toHaveLength(2)
+  })
+
+  it('takes an HTML 404 as a network_error with its status that is not retried, keeping x-request-id', async () => {
+    const engine = testEngine()
+
+    engine.fake!.next({
+      status: 404,
+      headers: { 'content-type': 'text/html', 'x-request-id': 'req_html' },
+      text: '<html><body>Not Found</body></html>'
+    })
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
+    const { error } = await settle(meridian.models.list())
+
+    expect(error).toMatchObject({ code: 'network_error', status: 404, retryable: false, requestId: 'req_html' })
+    expect(engine.fake!.requests).toHaveLength(1)
+  })
+
+  it('takes the x-request-id header when the envelope carries no request id', async () => {
+    const engine = testEngine()
+
+    engine.fake!.next({
+      status: 403,
+      headers: { 'x-request-id': 'req_header' },
+      json: { error: { message: 'm', type: 'permission_error', code: 'model_not_allowed' } }
+    })
+
+    const { error } = await createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch }).chat.create({
+      messages
+    })
+
+    expect(error).toMatchObject({ code: 'model_not_allowed', requestId: 'req_header' })
+  })
+
+  it('waits until an HTTP-date Retry-After', async () => {
+    const engine = testEngine()
+
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+    engine.fake!.next(engineError('rate_limited', { 'retry-after': 'Tue, 01 Jan 2030 00:00:05 GMT' }))
+
+    const pending = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch }).chat.create({
+      messages
+    })
+
+    await vi.advanceTimersByTimeAsync(4_900)
+    expect(engine.fake!.requests).toHaveLength(1)
+    expect((await settle(pending)).error).toBeNull()
+    expect(engine.fake!.requests).toHaveLength(2)
+  })
+
+  it('waits for a Retry-After of exactly 30 seconds, and returns at once for 31', async () => {
+    const engine = testEngine()
+    const meridian = createClient(engine.publicUrl, engine.projectKey, { fetch: engine.fetch })
+
+    engine.fake!.next(engineError('rate_limited', { 'retry-after': '30' }))
+    expect((await settle(meridian.chat.create({ messages }))).error).toBeNull()
+    expect(engine.fake!.requests).toHaveLength(2)
+
+    engine.fake!.next(engineError('rate_limited', { 'retry-after': '31' }))
+    expect((await meridian.chat.create({ messages })).error?.code).toBe('rate_limited')
+    expect(engine.fake!.requests).toHaveLength(3)
+  })
+
+  it('clamps a timeout beyond what a timer holds (2^31 - 1 ms) instead of timing out at once', async () => {
+    const engine = testEngine()
+
+    engine.fake!.next({
+      delayMs: 1_000,
+      json: { id: 'c', object: 'chat.completion', created: 0, model: 'm', choices: [] }
+    })
+
+    const meridian = createClient(engine.publicUrl, engine.projectKey, {
+      fetch: engine.fetch,
+      timeout: 2 ** 40,
+      maxRetries: 0
+    })
+
+    const pending = meridian.chat.create({ messages })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect((await pending).error).toBeNull()
+  })
+})

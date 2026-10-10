@@ -60,6 +60,7 @@ export const DEFAULT_MAX_RETRIES = 2
 const BASE_DELAY_MS = 500
 const MAX_JITTER_MS = 250
 const MAX_RETRY_AFTER_MS = 30_000
+const MAX_TIMER_MS = 2 ** 31 - 1
 
 /** A buffered reply is read this far; a body over its cap is refused, never truncated (meridian-go's limit). */
 const MAX_REPLY_BYTES = 64 * 1024 * 1024
@@ -109,8 +110,11 @@ function unusable(response: Response, message: string): MeridianError {
 }
 
 export function createTransport(config: TransportConfig): Transport {
-  // The caller's timeout applies to every call; without one, each call has its own default
-  const givenTimeout = Number.isFinite(config.timeout) && config.timeout! > 0 ? config.timeout! : null
+  // The caller's timeout applies to every call; without one, each call has its own default. A timer holds at most
+  // 2^31 - 1 ms (a longer one would fire at once), so a longer timeout is clamped to that
+  const givenTimeout =
+    Number.isFinite(config.timeout) && config.timeout! > 0 ? Math.min(config.timeout!, MAX_TIMER_MS) : null
+
   const base = config.baseUrl.replace(/\/+$/, '')
 
   const maxRetries = Number.isFinite(config.maxRetries)

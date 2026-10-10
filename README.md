@@ -44,7 +44,15 @@ if (error) console.error(error.code, error.message, error.requestId)
 else console.log(data.choices[0]?.message.content)
 ```
 
-Streaming: `const { data: stream } = await meridian.chat.stream({ messages })`, then `await stream.text()`. List models with `meridian.models.list()`.
+Streaming: `const { data: stream } = await meridian.chat.stream({ messages })`, then `await stream.text()`. A stream is read once: a second read ends at once with `aborted` ("This stream was already read."). List models with `meridian.models.list()`.
+
+Errors, retries and timeouts:
+
+- `error.code` is one of the engine's 28 codes, or `network_error` / `aborted` (type `client_error`) for failures on the SDK's side. A code this SDK does not know (a newer engine) arrives as `internal`, not retryable, with the engine's own code in `error.engineCode`.
+- Replies the SDK cannot use are `network_error` with the real status: a body that is not Meridian's envelope (a proxy page, an HTML 404, a plain 429), a 2xx whose top level carries a non-null `error` (or a case variant such as `Error` or `CHOICES`), a literal `null`, a 204 for anything but a delete, JSON with a number JSON cannot hold (`1e999`), an error body over 1 MiB or a reply over 64 MiB (refused, never truncated).
+- Retryable errors (`rate_limited`, `upstream_unavailable`, `service_unavailable`, `deadline_exceeded`, `network_error`) are retried `maxRetries` times (default 2) before the first byte, honouring a `Retry-After` of delta-seconds or an HTTP date up to 30 s; a longer one is returned at once. Chat calls keep one idempotency key across their retries; if a retry is answered with `idempotency_conflict`, the previous attempt's error is returned (unless that was `rate_limited`, after which the engine has released the key).
+- `idempotencyKey` must be 1 to 255 visible ASCII characters (0x21 to 0x7E), the engine's rule; anything else is a configuration error and nothing is sent. An empty key, or none, makes a fresh one.
+- `timeout` is the wait for response headers. Default: 300 s for `chat.create` (a buffered reply may take minutes), 60 s for streams, models and admin calls. A `timeout` you pass applies to every call; values over 2^31 - 1 ms are clamped to that.
 
 ### `meridian/browser`: the browser client
 
@@ -78,10 +86,14 @@ Forwarding notes:
 
 - `authorize` must `request.clone()` before reading the body; the handler reads the body afterwards.
 - The handler accepts `POST` with `application/json` only (415 otherwise).
-- By default the browser may set `messages`, `temperature` and `max_tokens`. `max_tokens` is capped at 4096. `model` and every other field are dropped unless `allow` permits them.
+- After `authorize`, the body is read chunk by chunk and refused past 8 MiB (413 `body_too_large`; the rest is never read). It must be UTF-8 JSON without a byte order mark, an object with a non-empty `messages` list, nested no deeper than 64 levels (400 `invalid_request` otherwise).
+- By default the browser may set `messages`, `temperature` and `max_tokens`. `max_tokens` is capped at 4096. `model` and every other field are dropped unless `allow` permits them; `allow.options` can never copy `model`, `stream`, `stream_options`, `messages`, `max_tokens`, `max_completion_tokens`, `temperature` or `n` raw.
 - `messages` are forwarded as sent. A browser can send a `system` message. If your app needs a fixed system prompt, add it server-side.
-- When the engine refuses the app's own key or account (for example `invalid_api_key`, `key_revoked`, `insufficient_credit`, `hard_limit_reached`), the browser gets a generic 503 `service_unavailable` with the request id, in a stream frame too. A setup or configuration error (for example a missing key or a bad engine URL) becomes the same generic 503. This generic envelope is non-retryable, so the browser client does not retry it. Your server-side client still sees the real error.
-- The handler sets no body-size limit. Apply one in your app server.
+- The browser's `idempotency-key` is forwarded only when it follows the engine's rule (1 to 255 characters of 0x21 to 0x7E); otherwise the server client makes one.
+- The handler fails closed. The browser gets a generic, non-retryable 503 `service_unavailable` (with the request id, in a stream frame too, and never a `Retry-After`) when the engine refuses the app's own key or account (`invalid_api_key`, `key_revoked`, `key_expired`, `project_unavailable`, `organisation_unavailable`, `project_host_mismatch`, `byok_required`, `insufficient_credit`, `hard_limit_reached`, `entitlement_missing`), when the code is one this SDK does not recognise, when an error has no usable code (missing, empty, not a string, or a case variant of a member such as `Error` or `Code`), when a 2xx reply carries an `error`, and for every setup or transport error (a missing key, a bad engine URL, a network failure). Your server-side client still sees the real error. Any other engine error passes with its status; a `rate_limited` keeps the engine's valid `Retry-After`.
+- A stream is judged event by event before any byte reaches the browser. Events with a known code pass byte for byte; an event with a hidden code becomes the generic frame. Content the guard cannot judge (an `event:` other than `message`, a field other than `data`, `id`, `retry` or a comment, `data` that is not a JSON object or `[DONE]`, an `error` that is no object with a non-empty string code, a body that ends without a `data` line, a broken body) ends the stream with the generic frame and closes the engine's stream. This assumes a direct connection from the SDK to the engine: a proxy that adds `event:` lines or other fields makes every stream fail closed.
+- The engine's stream is closed on every exit: a clean end, a fail-closed end, a broken body, or a browser that goes away (the Pages Router, Nuxt and Expo paths are tested).
+- A request id reaches a response header or a body the SDK builds only when it is 1 to 255 printable ASCII characters with no space first or last; otherwise it is left out.
 - The browser client's default route is relative, so it needs a browser. Use an absolute `route` anywhere else.
 - Cookies are sent for same-origin routes by default. A cross-origin route needs a custom `fetch`.
 - The `idempotency-key` header triggers a CORS preflight on cross-origin routes.
@@ -112,7 +124,10 @@ The 21 operations at a glance (every call returns `{ data, error }`):
 | `analytics`           | `usage`                                     |
 | `logs`                | `list`                                      |
 
-`keys.create` returns the new `api_key` once, so store it.
+`keys.create` returns the new `api_key` once, so store it. It is a plain field of a plain object: the SDK hides it nowhere, so logging or inspecting the result (`console.log`, `util.inspect`) prints it, and `JSON.stringify` includes it on purpose (the key has to reach your store). Keep the result out of logs.
+
+Admin reads and deletes are retried like any call. Writes (`POST`, `PUT`, `PATCH`) are retried only after `rate_limited`, which means the engine did not run them; `orgs.create` is retried normally when it has a non-blank `external_reference`, by which the engine replays it. A resource id that is empty, `.` or `..` (also after one percent-decode), or an organisation id that reads as `by-reference`, is refused as a configuration error and nothing is sent.
+
 Prices are never exposed (D-27). The client wraps the engine's integrator-key operations except the two supplier-catalogue price operations (`GET /v1/catalogue` and `GET /v1/catalogue/{version}`), so there are no `catalogue` methods. Every reply also loses any `cost`, `price`, `per_million`, `recovery_rate` or `write_off_rate` field, in the types and in the data; `rate_limit_*` fields stay. A billing service reads supplier prices from the engine's admin API directly.
 
 ## Framework packages
