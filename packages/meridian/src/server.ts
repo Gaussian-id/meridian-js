@@ -265,15 +265,20 @@ class Guard {
   }
 }
 
-/** The stream's body through the guard. Upstream is closed on every exit but a clean end: failed closed, broken, or cancelled by the browser. */
-function guardedBody(stream: ChatStream): ReadableStream<Uint8Array> {
+/** The stream's body through the guard. Upstream is closed on every exit but a clean end: failed closed, broken, cancelled by the browser, or the request aborted. */
+function guardedBody(stream: ChatStream, signal: AbortSignal): ReadableStream<Uint8Array> {
   const guard = new Guard(stream.requestId ?? undefined)
   const reader = stream.toResponse().body!.getReader()
 
   const close = () => {
+    signal.removeEventListener('abort', close)
     reader.cancel().catch(() => {})
     stream.cancel()
   }
+
+  // A browser that left closes upstream even when a custom fetch ignores the abort; already gone, close at once
+  if (signal.aborted) close()
+  else signal.addEventListener('abort', close, { once: true })
 
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -315,13 +320,13 @@ function guardedBody(stream: ChatStream): ReadableStream<Uint8Array> {
   })
 }
 
-function streamResponse(stream: ChatStream): Response {
+function streamResponse(stream: ChatStream, signal: AbortSignal): Response {
   // The route's own headers: the engine's content-encoding and content-length never describe these bytes
   const headers = new Headers({ 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache' })
 
   if (stream.requestId) headers.set('x-request-id', stream.requestId)
 
-  return new Response(guardedBody(stream), { status: 200, headers })
+  return new Response(guardedBody(stream, signal), { status: 200, headers })
 }
 
 // --- The request -----------------------------------------------------------------------------------------------------
@@ -540,7 +545,7 @@ export function createForwardHandler(options: ForwardHandlerOptions): (request: 
     if (body.stream === true) {
       const { data, error } = await client.chat.stream(params, callOptions)
 
-      return error ? browserError(error) : streamResponse(data)
+      return error ? browserError(error) : streamResponse(data, request.signal)
     }
 
     // [5] A 2xx that carries an error member (or a case variant of a member the SDK reads) is no result

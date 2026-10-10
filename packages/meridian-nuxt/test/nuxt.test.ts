@@ -1,7 +1,7 @@
 import { createServer, request, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 
-import { createApp, toNodeListener, toWebHandler } from 'h3'
+import { createApp, defineEventHandler, readRawBody, toNodeListener, toWebHandler, type EventHandler } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
@@ -129,9 +129,12 @@ describe('meridian-nuxt on a Node server (toNodeListener)', () => {
   const uncaught: unknown[] = []
   const record = (error: unknown) => uncaught.push(error)
 
-  const serve = async (options: MeridianHandlerOptions) => {
+  const serve = async (options: MeridianHandlerOptions, middleware?: EventHandler) => {
     process.on('uncaughtException', record)
-    server = createServer(toNodeListener(createApp().use('/api/meridian/chat', defineMeridianHandler(options))))
+    const app = createApp()
+
+    if (middleware) app.use(middleware)
+    server = createServer(toNodeListener(app.use('/api/meridian/chat', defineMeridianHandler(options))))
     await new Promise<void>(resolve => server!.listen(0, '127.0.0.1', resolve))
 
     return (server.address() as AddressInfo).port
@@ -254,6 +257,78 @@ describe('meridian-nuxt on a Node server (toNodeListener)', () => {
       req.on('error', () => {})
       req.on('timeout', reject)
       req.end(JSON.stringify({ stream: true, messages: [{ role: 'user', content: 'hi' }] }))
+    })
+
+    await vi.waitFor(() => expect(closed).toBe(true), { timeout: 1000 })
+    const settled = pulls
+
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(pulls).toBe(settled)
+    expect(uncaught).toEqual([])
+  })
+
+  it('forwards, and closes upstream on a disconnect, when a middleware already read the body with readRawBody', async () => {
+    const encoder = new TextEncoder()
+    let pulls = 0
+    let closed = false
+
+    // Answers a buffered call with JSON and a streamed one with an endless stream
+    const engine = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (!String(init?.body).includes('"stream":true'))
+        return Response.json({ id: 'x', object: 'chat.completion', choices: [] })
+
+      const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          await new Promise(resolve => setTimeout(resolve, 10))
+          pulls++
+          controller.enqueue(encoder.encode('data: {"choices":[]}\n\n'))
+        },
+        cancel() {
+          closed = true
+        }
+      })
+
+      return new Response(body, { headers: { 'content-type': 'text/event-stream' } })
+    }) as typeof fetch
+
+    const port = await serve(
+      { client: createClient('http://engine.test', 'gmr_x', { fetch: engine }), authorize: () => true },
+      defineEventHandler(async event => {
+        if (event.method === 'POST') await readRawBody(event, false)
+      })
+    )
+
+    const url = `http://127.0.0.1:${port}/api/meridian/chat`
+    const hi = [{ role: 'user', content: 'hi' }]
+
+    const forwarded = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: hi })
+    })
+
+    expect(forwarded.status).toBe(200)
+
+    // The browser reads the first frame, then leaves
+    await new Promise<void>(resolve => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/meridian/chat',
+          method: 'POST',
+          headers: { 'content-type': 'application/json' }
+        },
+        res => {
+          res.once('data', () => {
+            req.destroy()
+            resolve()
+          })
+        }
+      )
+
+      req.on('error', () => {})
+      req.end(JSON.stringify({ stream: true, messages: hi }))
     })
 
     await vi.waitFor(() => expect(closed).toBe(true), { timeout: 1000 })

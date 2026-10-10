@@ -1,6 +1,6 @@
 import { defineConfig } from 'vitest/config'
 
-import base from './vitest.config'
+import base from './vitest.config.ts'
 
 // `pnpm test:oracles` (part of `pnpm gate`): the slow guard checks kept out of `pnpm test`. The contract guard against
 // compose and both local-up readers, and vitest itself run in contract mode. Run it from Git Bash on Windows: the

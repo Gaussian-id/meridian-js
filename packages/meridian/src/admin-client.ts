@@ -19,7 +19,7 @@ type Done = Promise<Result<null>>
  * Provisioning with an integrator key (`gmi_`): the engine's wire shapes, snake_case. `orgs.create` is idempotent by
  * `external_reference`; `keys.create` returns the new `api_key` once, so store it. Inspection and logging hide it
  * (`util.inspect`, `console.log` and Deno's console show `'[redacted]'`); it stays a plain field, so `JSON.stringify`,
- * a spread (`{ ...data }`) and JSON loggers such as pino or winston carry it, on purpose (the key has to reach your
+ * `%j` (as in `console.log('%j', data)` and `util.format`), a spread (`{ ...data }`) and JSON loggers such as pino or winston carry it, on purpose (the key has to reach your
  * store). Keep the result out of logs.
  */
 export interface AdminClient {
@@ -124,7 +124,7 @@ function path(strings: TemplateStringsArray, ...values: (string | number)[]): Ro
 /**
  * Hides an issued `api_key` from inspection and logging: `util.inspect`, `console.log` (Node, Bun) and Deno's console
  * show `'[redacted]'`. Through non-enumerable symbol members only, so the field stays a plain value: `JSON.stringify`,
- * a spread and JSON loggers (pino, winston) keep the key, on purpose.
+ * `%j`, a spread and JSON loggers (pino, winston) keep the key, on purpose.
  */
 function redactKey<T>(result: Result<T>): Result<T> {
   const data = result.data as Record<string, unknown> | null

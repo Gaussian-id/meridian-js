@@ -2,7 +2,7 @@
 // strictness, the fail-closed error and stream guard, the shared idempotency-key rule, request ids fit for a header,
 // and the Retry-After relay.
 
-import { expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { createClient } from 'meridian'
 import { createForwardHandler, type ForwardHandlerOptions } from 'meridian/server'
@@ -420,6 +420,73 @@ describeFake('forwarding parity: the stream guard', () => {
     await reader.cancel()
 
     expect(state.closed).toBe(true)
+  })
+
+  describe('a browser that leaves, with a custom fetch that ignores abort', () => {
+    /** An endless engine stream that never looks at the signal. */
+    function deaf(headerDelay = 0) {
+      const state = { pulls: 0, cancelled: false }
+
+      const fetch = (async () => {
+        await new Promise(resolve => setTimeout(resolve, headerDelay))
+
+        const body = new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            await new Promise(resolve => setTimeout(resolve, 5))
+            state.pulls++
+            controller.enqueue(encoder.encode(text))
+          },
+          cancel() {
+            state.cancelled = true
+          }
+        })
+
+        return new Response(body, { headers: { 'content-type': 'text/event-stream' } })
+      }) as typeof globalThis.fetch
+
+      const client = createClient('http://engine.test', 'gmr_x', { fetch, maxRetries: 0 })
+      const handler = createForwardHandler({ client, authorize: () => true })
+      const controller = new AbortController()
+
+      const request = new Request('http://app.test/api/meridian/chat', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ messages: hi, stream: true }),
+        signal: controller.signal
+      })
+
+      return { state, handler, controller, request }
+    }
+
+    const noMorePulls = async (state: { pulls: number }) => {
+      await new Promise(resolve => setTimeout(resolve, 30))
+      const settled = state.pulls
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+      expect(state.pulls).toBe(settled)
+    }
+
+    it('closes upstream when the browser leaves mid-stream', async () => {
+      const { state, handler, controller, request } = deaf()
+      const reader = (await handler(request)).body!.getReader()
+
+      await reader.read()
+      controller.abort()
+
+      await vi.waitFor(() => expect(state.cancelled).toBe(true), { timeout: 1000 })
+      await noMorePulls(state)
+    })
+
+    it('closes upstream at once when the browser left before the first byte', async () => {
+      const { state, handler, controller, request } = deaf(50)
+      const response = handler(request)
+
+      setTimeout(() => controller.abort(), 10)
+      await response
+
+      await vi.waitFor(() => expect(state.cancelled).toBe(true), { timeout: 1000 })
+      await noMorePulls(state)
+    })
   })
 
   it('leaves out a frame request id unfit for a header', async () => {
