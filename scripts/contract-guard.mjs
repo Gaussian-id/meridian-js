@@ -6,7 +6,16 @@ import { lstatSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import { isIPv6 } from "node:net";
 import { basename, dirname, join, resolve, sep } from "node:path";
 
-export const PAID_KEYS = ["GAUSSMERIDIAN_GEMINI_API_KEY", "GAUSSMERIDIAN_OPENROUTER_API_KEY"];
+export const PAID_KEYS = [
+  "GAUSSMERIDIAN_GEMINI_API_KEY",
+  "GAUSSMERIDIAN_OPENROUTER_API_KEY",
+  "GAUSSMERIDIAN_OPENAI_API_KEY",
+  "GAUSSMERIDIAN_ANTHROPIC_API_KEY",
+  "GAUSSMERIDIAN_XAI_API_KEY",
+  "GAUSSMERIDIAN_DEEPSEEK_API_KEY",
+  "GAUSSMERIDIAN_MISTRAL_API_KEY",
+  "GAUSSMERIDIAN_QWEN_API_KEY",
+];
 export const KEY_FILES = ["local-api-key.txt", "local-integrator-key.txt"];
 export const ENV_FILE = "meridian-engine.env";
 export const DEFAULT_URLS = {
@@ -272,14 +281,20 @@ const CONTAINER_ID = /^[0-9a-f]{12,64}$/;
 const LABEL = (name) => `{{index .Config.Labels "${name}"}}`;
 
 // The only environment entries the proof may compare, each by exact equality inside the docker template, so the
-// output is a token and never a value. The two paid keys are compared with the public dummy of
-// deploy/compose.simulator.yaml and nothing else.
+// output is a token and never a value. Every paid key is compared with the public dummy of
+// deploy/compose.simulator.yaml (which sets all eight) and nothing else.
 const SIM_ENV = [
   ["gemini_base", "GAUSSMERIDIAN_GEMINI_BASE_URL=http://provider-sim:8184/v1beta"],
   ["openrouter_base", "GAUSSMERIDIAN_OPENROUTER_BASE_URL=http://provider-sim:8184/api/v1"],
   ["sim_flag", "GAUSSMERIDIAN_PROVIDER_SIMULATOR=true"],
   ["gemini_dummy", "GAUSSMERIDIAN_GEMINI_API_KEY=sim-local-key"],
   ["openrouter_dummy", "GAUSSMERIDIAN_OPENROUTER_API_KEY=sim-local-key"],
+  ["openai_dummy", "GAUSSMERIDIAN_OPENAI_API_KEY=sim-local-key"],
+  ["anthropic_dummy", "GAUSSMERIDIAN_ANTHROPIC_API_KEY=sim-local-key"],
+  ["xai_dummy", "GAUSSMERIDIAN_XAI_API_KEY=sim-local-key"],
+  ["deepseek_dummy", "GAUSSMERIDIAN_DEEPSEEK_API_KEY=sim-local-key"],
+  ["mistral_dummy", "GAUSSMERIDIAN_MISTRAL_API_KEY=sim-local-key"],
+  ["qwen_dummy", "GAUSSMERIDIAN_QWEN_API_KEY=sim-local-key"],
 ];
 
 export const SIM_TEMPLATE = `{{range .Config.Env}}${SIM_ENV.map(([token, entry]) => `{{if eq . "${entry}"}}${token} {{end}}`).join("")}{{end}}`;

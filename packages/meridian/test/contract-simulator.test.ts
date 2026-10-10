@@ -8,6 +8,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 
 import { refusal, simulatorProof, SIM_TEMPLATE, type Environ } from '../../../scripts/contract-guard.mjs'
 import { ENGINE_ID, fakeDocker, healthySim, SIM_TOKENS, type FakeSim } from './support/fake-docker'
+import { NEW_KEYS } from './support/guard-texts'
 
 const SECRET = 'v' + 'q'.repeat(24)
 const roots: string[] = []
@@ -42,6 +43,18 @@ function prove(change: (sim: FakeSim) => void = () => {}, extra: Environ = {}) {
 describe('simulator proof', () => {
   it('passes for a simulator engine started from this runtime', () => {
     expect(prove().reason).toBeNull()
+  })
+
+  it.each(NEW_KEYS)('S3 refuses an engine whose %s is not the public dummy', name => {
+    const token = `${name.replace(/^GAUSSMERIDIAN_|_API_KEY$/g, '').toLowerCase()}_dummy`
+    const { reason } = prove(sim => (sim.tokens = sim.tokens.filter(each => each !== token)))
+
+    expect(reason).toContain(`missing: ${token}`)
+    expect(SIM_TEMPLATE).toContain(`{{if eq . "${name}=sim-local-key"}}${token} {{end}}`)
+  })
+
+  it('S3 refuses an extra token', () => {
+    expect(prove(sim => sim.tokens.push('qwen_dummy')).reason).toContain('not set up')
   })
 
   it('asks docker with a fixed argv, a format on every inspect, and never for logs or raw env', () => {

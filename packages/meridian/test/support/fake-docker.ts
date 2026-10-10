@@ -34,7 +34,19 @@ export interface FakeSim {
 }
 
 export const ENGINE_ID = 'e'.repeat(12)
-export const SIM_TOKENS = ['gemini_base', 'openrouter_base', 'sim_flag', 'gemini_dummy', 'openrouter_dummy']
+export const SIM_TOKENS = [
+  'gemini_base',
+  'openrouter_base',
+  'sim_flag',
+  'gemini_dummy',
+  'openrouter_dummy',
+  'openai_dummy',
+  'anthropic_dummy',
+  'xai_dummy',
+  'deepseek_dummy',
+  'mistral_dummy',
+  'qwen_dummy'
+]
 
 /** What a healthy simulator-mode engine answers for the runtime `environ` points at. */
 export function healthySim(environ: Environ): FakeSim {
