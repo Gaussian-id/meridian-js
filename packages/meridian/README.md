@@ -224,6 +224,8 @@ API errors are values, never thrown. **The one exception:** `createForwardHandle
 
 `ChatParams` is the engine's request body without `stream` and `stream_options` (the SDK owns those). `model` is optional: absent means `meridian/auto`. It accepts extra keys because the engine forwards unknown request fields, so a typo such as `temprature` is not a compile error.
 
+To request a reasoning effort, set `model` to `meridian/auto:low` or append `:<effort>` to a named model. Efforts are case-sensitive: `low`, `medium`, `high`, `xhigh`, `max`. The browser forwarding route drops `model` by default; set `allow.model` to `true` or include the exact suffixed string in its allowlist to forward it.
+
 ### Stream chunk
 
 Each iteration of a `ChatStream` yields `{ delta, raw }`: `delta` is the text piece (`''` when the chunk has none) and `raw` is the full chunk (`choices[0].delta` can also carry `role`, `reasoning`, `refusal` and `tool_calls`).
