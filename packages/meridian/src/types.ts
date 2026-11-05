@@ -34,6 +34,12 @@ export interface ClientOptions {
 
   /** Retries for retryable errors before the first byte; default 2. */
   maxRetries?: number
+
+  /**
+   * Headers added to every request, e.g. a trace id or a proxy's own header. They may replace `X-Client-Info`;
+   * they never replace `Authorization` (the key) or `Content-Type`.
+   */
+  headers?: Record<string, string>
 }
 
 export interface RequestOptions {

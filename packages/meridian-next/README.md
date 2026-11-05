@@ -9,7 +9,7 @@
 
 Gauss Meridian for Next.js: a server-side client, App Router and Pages Router forwarding handlers, and a keyless browser client. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
-> **Status:** Public preview, v0.1.0. Peer dependencies: `next >= 14`, `react >= 18`, `react-dom >= 18`.
+> **Status:** Public preview, v0.2.0. Node 22 or later. Peer dependencies: `next >= 14`, `react >= 18`, `react-dom >= 18`.
 
 ## Install
 

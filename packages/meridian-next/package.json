@@ -1,6 +1,6 @@
 {
   "name": "@gaussian-id/meridian-next",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Gauss Meridian for Next.js: server-side client, Pages Router helpers and a keyless browser client.",
   "keywords": [
     "meridian",
@@ -82,5 +82,8 @@
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

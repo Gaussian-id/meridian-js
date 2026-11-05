@@ -21,6 +21,12 @@ export interface TransportConfig {
   fetch?: typeof fetch
   timeout?: number
   maxRetries?: number
+
+  /** Headers sent on every call (ClientOptions.headers); the SDK's own content-type and authorization win. */
+  headers?: Record<string, string>
+
+  /** The X-Client-Info value; set by the server and admin clients only. A caller's `headers` may replace it. */
+  clientInfo?: string
 }
 
 export interface Call {
@@ -134,7 +140,11 @@ export function createTransport(config: TransportConfig): Transport {
   }
 
   function headersFor(call: Call): Headers {
-    const headers = new Headers({ accept: 'application/json, text/event-stream', ...call.headers })
+    // Defaults, then the caller's client-wide headers, then this call's own; content-type and the key always last
+    const headers = new Headers({ accept: 'application/json, text/event-stream' })
+
+    if (config.clientInfo) headers.set('x-client-info', config.clientInfo)
+    for (const [name, value] of Object.entries({ ...config.headers, ...call.headers })) headers.set(name, value)
 
     if (call.body !== undefined) headers.set('content-type', 'application/json')
     if (config.key) headers.set('authorization', `Bearer ${config.key}`)
