@@ -424,6 +424,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/inventory/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Operator-only current or immutable snapshot page. `stale_after_seconds` is the explicit
+         *     reading policy; it changes no stored evidence and never grants serving eligibility.
+         */
+        get: operations["supplier_inventory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/{provider}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read-only difference between exact immutable supplier observations. */
+        get: operations["supplier_inventory_diff"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/inventory/{provider}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Compact refresh/review audit events, newest committed revision first. */
+        get: operations["supplier_inventory_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/logs": {
         parameters: {
             query?: never;
@@ -690,6 +744,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/orgs/{org}/projects/{project}/model-directory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A member's paginated view of the active published catalogue. */
+        get: operations["model_directory_page"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orgs/{org}/projects/{project}/models": {
         parameters: {
             query?: never;
@@ -752,6 +823,44 @@ export interface paths {
         };
         /** `GET /v1/roles`: the three roles, each with the permissions the decision table gives it. */
         get: operations["members_roles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/routing-records/{request_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * `GET /v1/routing-records/{request_id}?project_id=...`.
+         * @description Only integrators and platform administrators may read a routing record, because it carries
+         *     supplier prices; any other caller gets the not-found answer.
+         */
+        get: operations["routing_record_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/runtime": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /v1/runtime`: the routing mode and input ceiling of this server. */
+        get: operations["runtime_limits"];
         put?: never;
         post?: never;
         delete?: never;
@@ -860,9 +969,40 @@ export interface components {
         };
         /** @enum {string} */
         CredentialPolicy: "prefer" | "require";
+        DirectoryItem: {
+            display_name: string | null;
+            identity: string;
+            interface: components["schemas"]["Interface"];
+            lifecycle: components["schemas"]["Lifecycle"];
+            modality: string | null;
+            model_id: string;
+            project_access: components["schemas"]["ProjectAccess"];
+            provider: string;
+            publication: components["schemas"]["Publication"];
+            runtime_readiness: components["schemas"]["RuntimeReadiness"];
+            serving_model_ids: string[];
+        };
+        DirectoryResponse: {
+            items: components["schemas"]["DirectoryItem"][];
+            next_cursor: string | null;
+            providers: string[];
+            scan_complete: boolean;
+            /** Format: int32 */
+            schema_version: number;
+            sources: components["schemas"]["DirectorySource"][];
+        };
+        DirectorySource: {
+            coverage: components["schemas"]["SourceCoverage"] | null;
+            /** Format: int64 */
+            observed_at_unix_ms: number | null;
+            provider: string;
+            stale: boolean | null;
+            status: components["schemas"]["SourceStatus"];
+            total_models: number | null;
+        };
         ErrorBody: {
             /** @enum {string} */
-            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
+            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "price_unavailable" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
             message: string;
             /** Format: uuid */
             request_id: string;
@@ -886,6 +1026,208 @@ export interface components {
             name: string;
             /** @description The first characters of the credential, for recognising it. */
             prefix: string;
+        };
+        /** @enum {string} */
+        Interface: "supported" | "unsupported" | "unknown";
+        /** @enum {string} */
+        InventoryAccessWire: "available" | "unavailable" | "unknown";
+        InventoryAgeBody: {
+            /** Format: int64 */
+            age_ms: number | null;
+            ahead: boolean;
+            /** Format: int64 */
+            observed_at_unix_ms: number | null;
+            stale: boolean | null;
+        };
+        InventoryAxesBody: {
+            account_access: components["schemas"]["InventoryStatusAxisBody"];
+            interface: components["schemas"]["InventoryStatusAxisBody"];
+            lifecycle: components["schemas"]["InventoryStatusAxisBody"];
+            pricing: components["schemas"]["InventoryPricingAxisBody"];
+            qualification: components["schemas"]["InventoryQualificationBody"];
+        };
+        /** @enum {string} */
+        InventoryCoverageWire: "unproven" | "complete";
+        /** @enum {string} */
+        InventoryDiffKindWire: "added" | "changed" | "missing";
+        InventoryDiffResponse: {
+            base_hash: string;
+            candidate_hash: string;
+            next_offset: number | null;
+            offset: number;
+            provider: components["schemas"]["InventoryProviderWire"];
+            rows: components["schemas"]["InventoryDiffRowBody"][];
+        };
+        InventoryDiffRowBody: {
+            after: components["schemas"]["InventoryFactsBody"] | null;
+            before: components["schemas"]["InventoryFactsBody"] | null;
+            kind: components["schemas"]["InventoryDiffKindWire"];
+            upstream_id: string;
+        };
+        InventoryFactsBody: {
+            access: components["schemas"]["InventoryAccessWire"];
+            /** Format: int64 */
+            deprecated_at_unix: number | null;
+            display_name: string | null;
+            interface: components["schemas"]["InventoryInterfaceWire"];
+            lifecycle: components["schemas"]["InventoryLifecycleWire"];
+            modality: string | null;
+            prices: components["schemas"]["InventoryPriceBody"][];
+            pricing: components["schemas"]["InventoryPricingWire"];
+            replaced_by: string | null;
+            source: components["schemas"]["InventorySourceWire"];
+            supplier_facts: components["schemas"]["InventorySupplierFactsBody"] | null;
+            upstream_id: string;
+        };
+        /** @enum {string} */
+        InventoryFailureWire: "unavailable" | "status" | "continuation" | "deadline" | "limit" | "invalid_listing";
+        InventoryHistoryEventBody: {
+            /** @enum {string} */
+            kind: "refresh";
+            summary: components["schemas"]["InventoryRefreshSummaryBody"];
+        } | {
+            /** @enum {string} */
+            kind: "review";
+            receipt: components["schemas"]["InventoryReviewReceiptBody"];
+        };
+        InventoryHistoryResponse: {
+            events: components["schemas"]["InventoryHistoryEventBody"][];
+            limit: number;
+            offset: number;
+            provider: components["schemas"]["InventoryProviderWire"];
+        };
+        /** @enum {string} */
+        InventoryInterfaceWire: "supported" | "unsupported" | "unknown";
+        /** @enum {string} */
+        InventoryLifecycleWire: "active" | "deprecated" | "removed";
+        InventoryModelBody: {
+            axes: components["schemas"]["InventoryAxesBody"];
+            facts: components["schemas"]["InventoryFactsBody"];
+        };
+        InventoryPageResponse: {
+            latest_error: components["schemas"]["InventoryAgeBody"];
+            models: components["schemas"]["InventoryModelBody"][];
+            next_offset: number | null;
+            observation: components["schemas"]["InventoryAgeBody"];
+            provider: components["schemas"]["InventoryProviderWire"];
+            /** Format: int64 */
+            qualification_catalogue_version: number | null;
+            /** Format: int64 */
+            read_at_unix_ms: number;
+            snapshot: components["schemas"]["InventorySnapshotBody"] | null;
+            /** Format: int32 */
+            stale_after_seconds: number;
+            state: components["schemas"]["InventoryStateBody"] | null;
+        };
+        InventoryPriceBody: {
+            amount: string;
+            field: string;
+            source: components["schemas"]["InventorySourceWire"];
+            unit: string;
+        };
+        InventoryPricingAxisBody: {
+            evidence: components["schemas"]["InventoryPriceBody"][];
+            reason: string;
+            status: components["schemas"]["InventoryPricingWire"];
+            unresolved_dimensions: string[];
+        };
+        /** @enum {string} */
+        InventoryPricingWire: "evidenced" | "missing" | "stale" | "unknown";
+        /** @enum {string} */
+        InventoryProviderWire: "cerebras" | "deepinfra" | "openai" | "anthropic" | "gemini";
+        InventoryQualificationBody: {
+            /** Format: int64 */
+            catalogue_version: number | null;
+            exact_financial_qualification: boolean;
+            reason: string;
+            routes: components["schemas"]["InventoryQualificationRouteBody"][];
+            status: string;
+        };
+        InventoryQualificationRouteBody: {
+            model_id: string;
+            unverified: boolean;
+        };
+        InventoryRefreshSummaryBody: {
+            attempt_id: string;
+            /** Format: int64 */
+            expected_revision: number;
+            /** Format: int64 */
+            finished_at_unix_ms: number;
+            outcome: components["schemas"]["InventorySummaryOutcomeBody"];
+            /** Format: int64 */
+            started_at_unix_ms: number;
+        };
+        InventoryRemovalBody: {
+            base_hash: string | null;
+            candidate_hash: string;
+            empty_result: boolean;
+            /** Format: int64 */
+            expected_revision: number;
+            missing_count: number;
+            missing_ids_digest: string;
+            provider: components["schemas"]["InventoryProviderWire"];
+        };
+        InventoryReviewBody: {
+            actor: string;
+            fingerprint: components["schemas"]["InventoryRemovalBody"];
+            reason: string;
+            /** Format: int64 */
+            reviewed_at_unix_ms: number;
+        };
+        InventoryReviewReceiptBody: {
+            /** Format: int64 */
+            resulting_revision: number;
+            review: components["schemas"]["InventoryReviewBody"];
+        };
+        InventorySnapshotBody: {
+            content_hash: string;
+            coverage: components["schemas"]["InventoryCoverageWire"];
+            provider: components["schemas"]["InventoryProviderWire"];
+            /** Format: int32 */
+            schema_version: number;
+            sources: components["schemas"]["InventorySourceWire"][];
+            total_models: number;
+        };
+        /** @enum {string} */
+        InventorySourceWire: "cerebras_public" | "cerebras_account" | "deepinfra_public" | "openai_account" | "anthropic_account" | "gemini_account";
+        InventoryStateBody: {
+            current_hash: string | null;
+            held: components["schemas"]["InventoryRemovalBody"] | null;
+            /** Format: int64 */
+            held_observed_at_unix_ms: number | null;
+            /** Format: int64 */
+            last_attempt_finished_at_unix_ms: number | null;
+            last_attempt_id: string | null;
+            last_error: components["schemas"]["InventoryFailureWire"] | null;
+            /** Format: int64 */
+            observed_at_unix_ms: number | null;
+            /** Format: int64 */
+            revision: number;
+        };
+        InventoryStatusAxisBody: {
+            reason: string;
+            source: components["schemas"]["InventorySourceWire"];
+            status: string;
+        };
+        InventorySummaryOutcomeBody: {
+            content_hash: string;
+            held: boolean;
+            /** @enum {string} */
+            status: "observed";
+        } | {
+            reason: components["schemas"]["InventoryFailureWire"];
+            /** @enum {string} */
+            status: "failed";
+        };
+        /** @description Whitelisted listing facts kept verbatim; none of them is a capability claim. */
+        InventorySupplierFactsBody: {
+            created?: string | null;
+            generation_methods?: string[] | null;
+            /** Format: int64 */
+            input_token_limit?: number | null;
+            /** Format: int64 */
+            output_token_limit?: number | null;
+            owned_by?: string | null;
         };
         /** @description `POST /v1/orgs/{org}/members`: who to invite, and as what. */
         InviteMember: {
@@ -972,6 +1314,8 @@ export interface components {
              */
             rate_limit_per_minute: number | null;
         };
+        /** @enum {string} */
+        Lifecycle: "active" | "deprecated" | "removed" | "unknown";
         /** @description A page of the request log, newest first. */
         LogPage: {
             /** @description Whether older rows exist. */
@@ -1002,6 +1346,24 @@ export interface components {
             provider: string | null;
             /** @description How it ended: `completed`, `failed` or `cancelled`. */
             status: string;
+            /**
+             * Format: int32
+             * @description How many attempts it sent to suppliers. `null` when not recorded or unless the caller is
+             *     an integrator.
+             */
+            supplier_attempts: number | null;
+            /**
+             * @description Whether that total is exact. `null` when not recorded or unless the caller is an
+             *     integrator.
+             */
+            supplier_cost_complete: boolean | null;
+            /**
+             * Format: int64
+             * @description What suppliers charged across its attempts, in micro-dollars: exact when
+             *     `supplier_cost_complete`, otherwise a floor. `null` when not recorded or unless the
+             *     caller is an integrator.
+             */
+            supplier_cost_total: number | null;
             /**
              * Format: int64
              * @description Input tokens, or `null` when the provider did not report them.
@@ -1068,7 +1430,8 @@ export interface components {
              * @description Always null: the engine holds no price (D-17).
              */
             cost: number | null;
-            model: string;
+            /** @description The model that served the requests, or `null` for requests no model answered. */
+            model: string | null;
             /**
              * Format: int64
              * @description How many requests it served.
@@ -1271,10 +1634,14 @@ export interface components {
             total: number;
             users: components["schemas"]["PlatformUserBody"][];
         };
+        /** @enum {string} */
+        ProjectAccess: "enabled" | "not_enabled" | "not_applicable";
         /** @description A project on the wire. */
         ProjectBody: {
             /** @description RFC 3339, UTC. */
             created_at: string;
+            /** @description Effort used when a request does not override it. */
+            default_effort: string;
             /** @description A catalogue model id, or `null` when the project has no default. */
             default_model: string | null;
             id: string;
@@ -1284,6 +1651,8 @@ export interface components {
             ref: string;
             status: components["schemas"]["ResourceStatusName"];
         };
+        /** @enum {string} */
+        Publication: "published";
         /**
          * @description `PATCH /v1/orgs/{org}`: the new name, the only field M1 changes. Any other field (`plan`,
          *     `status`, …) is refused, never silently ignored.
@@ -1298,7 +1667,7 @@ export interface components {
             requeued: number;
         };
         /**
-         * @description An organisation's status on the wire.
+         * @description A resource's status on the wire (an organisation or a project).
          * @enum {string}
          */
         ResourceStatusName: "active" | "suspended" | "locked";
@@ -1314,10 +1683,47 @@ export interface components {
          * @enum {string}
          */
         RoleName: "owner" | "admin" | "developer";
+        /** @description The immutable routing observation returned to an authorised caller. */
+        RoutingRecordBody: {
+            /** @description Owning organisation. */
+            org_id: string;
+            /** @description Owning project. */
+            project_id: string;
+            /** @description Reproducible scoring facts and result, without request content. */
+            record: unknown;
+            /**
+             * Format: int64
+             * @description Observation time in Unix milliseconds.
+             */
+            recorded_at_ms: number;
+            /** @description Chat request identifier. */
+            request_id: string;
+        };
+        /** @description The response of `GET /v1/runtime`. */
+        RuntimeLimitsBody: {
+            /**
+             * Format: int32
+             * @description The ceiling on a chat request's conservative input token count, or null when unset.
+             */
+            max_input_tokens?: number | null;
+            /** @description The active routing mode. */
+            routing_mode: components["schemas"]["RuntimeRoutingMode"];
+        };
+        /** @enum {string} */
+        RuntimeReadiness: "unknown";
+        /**
+         * @description The routing mode on the wire.
+         * @enum {string}
+         */
+        RuntimeRoutingMode: "off" | "shadow" | "on";
         SetCredential: {
             credential: string;
             policy?: components["schemas"]["CredentialPolicy"] | null;
         };
+        /** @enum {string} */
+        SourceCoverage: "complete" | "unproven";
+        /** @enum {string} */
+        SourceStatus: "loaded" | "not_loaded";
         /** @description The platform administrator's own answer. */
         SuperadminBody: {
             /** @description Always `true`: anyone else never reaches the route. */
@@ -1369,13 +1775,15 @@ export interface components {
             start: string;
         };
         /**
-         * @description `PATCH /v1/orgs/{org}/projects/{project}`: exactly one of name, tenant status, or default
-         *     model. Null clears the default; omission leaves it unchanged.
+         * @description `PATCH /v1/orgs/{org}/projects/{project}`: exactly one of name, tenant status, default
+         *     model or default effort. Null clears the default model; omission leaves it unchanged.
          *
-         *     Send exactly one of `name`, `status` (`active` or `suspended`) or `default_model`; `null`
-         *     clears the default.
+         *     Send exactly one of `name`, `status` (`active` or `suspended`), `default_model` or
+         *     `default_effort`; `null` clears only the default model.
          */
         UpdateProject: {
+            /** @description `low`, `medium`, `high`, `xhigh` or `max`. */
+            default_effort?: string;
             /** @description A catalogue model id; `null` clears the default. */
             default_model?: string | null;
             /** @description The new name. */
@@ -1429,6 +1837,18 @@ export interface components {
              * @description Those that completed.
              */
             successful_requests: number;
+            /**
+             * @description Whether no request in the window has an unknown or unrecorded attempt cost. `null`
+             *     unless the caller is an integrator.
+             */
+            supplier_cost_complete: boolean | null;
+            /**
+             * Format: int64
+             * @description What suppliers charged across every attempt of the window's requests, in micro-dollars:
+             *     exact when `supplier_cost_complete`, otherwise a floor. `null` unless the caller is an
+             *     integrator.
+             */
+            supplier_cost_total: number | null;
             /**
              * Format: int64
              * @description Always null: the engine holds no price (D-17).
@@ -2136,6 +2556,101 @@ export interface operations {
             "5XX": components["responses"]["Error"];
         };
     };
+    supplier_inventory: {
+        parameters: {
+            query?: {
+                /** @description Immutable lowercase SHA-256 snapshot hash; omitted for current */
+                hash?: string;
+                /** @description First model index; default 0 */
+                offset?: number;
+                /** @description Maximum models; default 100 */
+                limit?: number;
+                /** @description Observation age policy; default 86400 seconds */
+                stale_after_seconds?: number;
+            };
+            header?: never;
+            path: {
+                provider: components["schemas"]["InventoryProviderWire"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded inventory with independent evidence axes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryPageResponse"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    supplier_inventory_diff: {
+        parameters: {
+            query: {
+                /** @description Required immutable lowercase SHA-256 base hash */
+                base_hash: string;
+                /** @description Required immutable lowercase SHA-256 candidate hash */
+                candidate_hash: string;
+                /** @description First difference index; default 0 */
+                offset?: number;
+                /** @description Maximum differences; default 100 */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                provider: components["schemas"]["InventoryProviderWire"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded immutable inventory diff */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryDiffResponse"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    supplier_inventory_history: {
+        parameters: {
+            query?: {
+                /** @description First history event; default 0 */
+                offset?: number;
+                /** @description Maximum events; default 100 */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                provider: components["schemas"]["InventoryProviderWire"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bounded refresh and review history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryHistoryResponse"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
     usage_logs: {
         parameters: {
             query: {
@@ -2773,6 +3288,44 @@ export interface operations {
             "5XX": components["responses"]["Error"];
         };
     };
+    model_directory_page: {
+        parameters: {
+            query?: {
+                /** @description exact provider ID */
+                provider?: string;
+                /** @description case-insensitive model search */
+                q?: string;
+                /** @description all, enabled, not_enabled, not_available, unsupported, or retired */
+                availability?: string;
+                /** @description maximum rows, default 50 */
+                limit?: number;
+                /** @description opaque continuation token */
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                /** @description organisation identifier */
+                org: string;
+                /** @description project identifier */
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Customer-safe model directory */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryResponse"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
     models_allowlist: {
         parameters: {
             query?: never;
@@ -2928,6 +3481,56 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RoleBody"][];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    routing_record_get: {
+        parameters: {
+            query: {
+                /** @description project_id (required) */
+                project_id: string;
+            };
+            header?: never;
+            path: {
+                /** @description chat request UUID */
+                request_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Content-free routing observation */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoutingRecordBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    runtime_limits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuntimeLimitsBody"];
                 };
             };
             "4XX": components["responses"]["Error"];

@@ -9,7 +9,7 @@
 
 Gauss Meridian for Next.js: a server-side client, App Router and Pages Router forwarding handlers, and a keyless browser client. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
-> **Status:** Public preview, v0.1.0. Peer dependencies: `next >= 14`, `react >= 18`, `react-dom >= 18`.
+> **Status:** Public preview, v0.2.0. Node 22 or later. Peer dependencies: `next >= 14`, `react >= 18`, `react-dom >= 18`.
 
 ## Install
 
@@ -35,7 +35,7 @@ import { createPagesHandler } from '@gaussian-id/meridian-next/pages'
 export default createPagesHandler({ authorize: async request => (await getSession(request)) !== null })
 ```
 
-In components, use `createBrowserClient()` from `@gaussian-id/meridian-next/browser`; it is preset to `/api/meridian/chat`. `createServerClient()` (from `@gaussian-id/meridian-next`) gives a server client for route handlers and server actions.
+In Client Components (files with `'use client'`), use `createBrowserClient()` from `@gaussian-id/meridian-next/browser`; it is preset to `/api/meridian/chat`, holds no key, and supports `chat.stream`. `createServerClient()` (from `@gaussian-id/meridian-next`) gives a server client for Server Components, Server Actions and Route Handlers. Each entry is guarded at build time: the server entry imports `server-only` and the browser entry imports `client-only`, so importing either on the wrong side fails `next build`.
 
 ## Entry points
 

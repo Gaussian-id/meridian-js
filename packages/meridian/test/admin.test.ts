@@ -296,7 +296,9 @@ describeEngine('cost opacity (D-27)', () => {
     }[keyof AdminClient]
 
     // The walker finds the key in the generated type, so an empty result for the client is meaningful
-    expectTypeOf<Priced<components['schemas']['LogRow']>>().toEqualTypeOf<'cost_charged'>()
+    expectTypeOf<Priced<components['schemas']['LogRow']>>().toEqualTypeOf<
+      'cost_charged' | 'supplier_cost_total' | 'supplier_cost_complete'
+    >()
     expectTypeOf<Priced<components['schemas']['SupplierPriceResponse']>>().toEqualTypeOf<
       'input_per_million' | 'output_per_million' | 'cached_input_per_million'
     >()

@@ -1,3 +1,5 @@
+import 'client-only'
+
 import {
   createBrowserClient as createCoreBrowserClient,
   DEFAULT_ROUTE,

@@ -9,7 +9,7 @@
 
 Gauss Meridian for Expo and React Native: a keyless client that calls your own server route. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
-> **Status:** Public preview, v0.1.0. Peer dependency: `expo >= 52`.
+> **Status:** Public preview, v0.2.0. Node 22 or later. Peer dependency: `expo >= 52`.
 
 ## Install
 

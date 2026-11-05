@@ -1,4 +1,4 @@
-/** The engine's 28 error codes (meridian-domain/src/error.rs:109-136). Task 9 checks this list against the spec. */
+/** The engine's 29 error codes (meridian-domain/src/error.rs). Task 9 checks this list against the spec. */
 export const ENGINE_ERROR_CODES = [
   'invalid_request',
   'invalid_api_key',
@@ -18,6 +18,7 @@ export const ENGINE_ERROR_CODES = [
   'insufficient_credit',
   'hard_limit_reached',
   'entitlement_missing',
+  'price_unavailable',
   'idempotency_conflict',
   'upstream_unavailable',
   'upstream_error',
@@ -78,7 +79,7 @@ export interface EngineEnvelope {
   error: { message: string; type: string; code: string; request_id?: string; retryable?: boolean }
 }
 
-/** HTTP status per code (meridian-domain/src/error.rs:142-164). */
+/** HTTP status per code (meridian-domain/src/error.rs). */
 export const STATUS_BY_CODE: Record<EngineErrorCode, number> = {
   invalid_request: 400,
   capability_unsupported: 400,
@@ -107,6 +108,7 @@ export const STATUS_BY_CODE: Record<EngineErrorCode, number> = {
   upstream_unavailable: 502,
   upstream_error: 502,
   service_unavailable: 503,
+  price_unavailable: 503,
   deadline_exceeded: 504
 }
 

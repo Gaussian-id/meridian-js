@@ -643,6 +643,7 @@
               "insufficient_credit",
               "hard_limit_reached",
               "entitlement_missing",
+              "price_unavailable",
               "idempotency_conflict",
               "upstream_unavailable",
               "upstream_error",

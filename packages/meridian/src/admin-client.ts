@@ -4,6 +4,7 @@ import { configError, fail, ok, type MeridianError, type Result } from './intern
 import type { OkBody, RequestBody } from './internal/openapi'
 import { refusedTransport } from './internal/refused'
 import { refusal, urlRefusal } from './internal/runtime'
+import { clientInfo } from './internal/client-info'
 import { createTransport, type Call, type Transport } from './internal/transport'
 import type { ClientOptions, RequestOptions } from './types'
 
@@ -217,6 +218,8 @@ export function createAdminClient(adminUrl: string, integratorKey: string, optio
 
   // [2] A refused client keeps its whole shape; every call answers the same error value
   return createAdminApi(
-    refused ? refusedTransport(refused) : createTransport({ baseUrl: adminUrl, key: integratorKey, ...options })
+    refused
+      ? refusedTransport(refused)
+      : createTransport({ baseUrl: adminUrl, key: integratorKey, clientInfo: clientInfo(), ...options })
   )
 }

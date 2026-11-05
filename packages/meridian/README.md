@@ -9,7 +9,7 @@
 
 The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.
 
-> **Status:** Public preview, v0.1.0. Runtime floor: Node 18 (`engines.node >= 18`). The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
+> **Status:** Public preview, v0.2.0. Runtime floor: Node 22 (`engines.node >= 22`), the same floor as supabase-js. The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
 
 ## Contents
 
@@ -253,7 +253,7 @@ interface MeridianError {
 
 ### Error codes
 
-The 28 engine codes and the SDK's two own codes. Status is the HTTP status the engine uses; a code is retryable by the SDK as listed.
+The 29 engine codes and the SDK's two own codes. Status is the HTTP status the engine uses; a code is retryable by the SDK as listed.
 
 | Code                       | Status                | Retryable                                                    |
 | -------------------------- | --------------------- | ------------------------------------------------------------ |
@@ -284,6 +284,7 @@ The 28 engine codes and the SDK's two own codes. Status is the HTTP status the e
 | `upstream_unavailable`     | 502                   | yes                                                          |
 | `upstream_error`           | 502                   | no                                                           |
 | `service_unavailable`      | 503                   | yes                                                          |
+| `price_unavailable`        | 503                   | no                                                           |
 | `deadline_exceeded`        | 504                   | yes                                                          |
 | `network_error` (SDK)      | the real status, or 0 | yes (a non-envelope reply is retryable only for 429 and 5xx) |
 | `aborted` (SDK)            | 0                     | no                                                           |
@@ -463,9 +464,12 @@ Client options (`createClient`, `createAdminClient`, `createBrowserClient`):
 | `fetch`      | global `fetch`       | a custom `fetch`; with none available, calls return a configuration error              |
 | `timeout`    | see above            | milliseconds to wait for response headers                                              |
 | `maxRetries` | `2`                  | retries for retryable errors before the first byte                                     |
+| `headers`    | none                 | headers added to every request; never replace `Authorization` or `Content-Type`        |
 | `route`      | `/api/meridian/chat` | `createBrowserClient` only: your forwarding route (absolute for Expo and React Native) |
 
 Per call (`RequestOptions`): `signal`, and `idempotencyKey` (chat calls).
+
+The server and admin clients send `X-Client-Info: meridian-js/<version>; runtime=<node|bun|deno|edge>; runtime-version=<version>`, in supabase-js's format. It names no app, key or user; a `headers` entry may replace it. The browser client sends none (an extra header on a route at another origin costs a CORS preflight); pass `headers` to add one.
 
 Forwarding (`allow`): `model` (`true` or a list), `maxTokensCap` (default 4096), `options` (extra field names).
 

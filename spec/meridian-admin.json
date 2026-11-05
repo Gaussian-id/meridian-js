@@ -1022,6 +1022,246 @@
         ]
       }
     },
+    "/v1/inventory/{provider}": {
+      "get": {
+        "summary": "Operator-only current or immutable snapshot page. `stale_after_seconds` is the explicit\nreading policy; it changes no stored evidence and never grants serving eligibility.",
+        "operationId": "supplier_inventory",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/InventoryProviderWire"
+            }
+          },
+          {
+            "name": "hash",
+            "in": "query",
+            "description": "Immutable lowercase SHA-256 snapshot hash; omitted for current",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "First model index; default 0",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 100000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum models; default 100",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "stale_after_seconds",
+            "in": "query",
+            "description": "Observation age policy; default 86400 seconds",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 2592000,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded inventory with independent evidence axes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryPageResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/inventory/{provider}/diff": {
+      "get": {
+        "summary": "Read-only difference between exact immutable supplier observations.",
+        "operationId": "supplier_inventory_diff",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/InventoryProviderWire"
+            }
+          },
+          {
+            "name": "base_hash",
+            "in": "query",
+            "description": "Required immutable lowercase SHA-256 base hash",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "candidate_hash",
+            "in": "query",
+            "description": "Required immutable lowercase SHA-256 candidate hash",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "First difference index; default 0",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 200000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum differences; default 100",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded immutable inventory diff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryDiffResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/inventory/{provider}/history": {
+      "get": {
+        "summary": "Compact refresh/review audit events, newest committed revision first.",
+        "operationId": "supplier_inventory_history",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/InventoryProviderWire"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "First history event; default 0",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 100000,
+              "minimum": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Maximum events; default 100",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 1000,
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded refresh and review history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InventoryHistoryResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
     "/v1/logs": {
       "get": {
         "summary": "`GET /v1/logs?project_id=&page_size=&cursor=`.",
@@ -2075,6 +2315,108 @@
         ]
       }
     },
+    "/v1/orgs/{org}/projects/{project}/model-directory": {
+      "get": {
+        "summary": "A member's paginated view of the active published catalogue.",
+        "operationId": "model_directory_page",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "organisation identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "description": "project identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "provider",
+            "in": "query",
+            "description": "exact provider ID",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "case-insensitive model search",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "description": "all, enabled, not_enabled, not_available, unsupported, or retired",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "maximum rows, default 50",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "maximum": 100,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "opaque continuation token",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Customer-safe model directory",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
     "/v1/orgs/{org}/projects/{project}/models": {
       "get": {
         "summary": "`GET …/models`: the models the project's keys may use.",
@@ -2364,6 +2706,91 @@
           }
         }
       }
+    },
+    "/v1/routing-records/{request_id}": {
+      "get": {
+        "summary": "`GET /v1/routing-records/{request_id}?project_id=...`.",
+        "description": "Only integrators and platform administrators may read a routing record, because it carries\nsupplier prices; any other caller gets the not-found answer.",
+        "operationId": "routing_record_get",
+        "parameters": [
+          {
+            "name": "request_id",
+            "in": "path",
+            "description": "chat request UUID",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "description": "project_id (required)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Content-free routing observation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoutingRecordBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/runtime": {
+      "get": {
+        "summary": "`GET /v1/runtime`: the routing mode and input ceiling of this server.",
+        "operationId": "runtime_limits",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeLimitsBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -2618,6 +3045,160 @@
           "require"
         ]
       },
+      "DirectoryItem": {
+        "type": "object",
+        "required": [
+          "identity",
+          "provider",
+          "model_id",
+          "display_name",
+          "modality",
+          "publication",
+          "project_access",
+          "runtime_readiness",
+          "lifecycle",
+          "interface",
+          "serving_model_ids"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "identity": {
+            "type": "string"
+          },
+          "interface": {
+            "$ref": "#/components/schemas/Interface"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/Lifecycle"
+          },
+          "modality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "project_access": {
+            "$ref": "#/components/schemas/ProjectAccess"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "publication": {
+            "$ref": "#/components/schemas/Publication"
+          },
+          "runtime_readiness": {
+            "$ref": "#/components/schemas/RuntimeReadiness"
+          },
+          "serving_model_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DirectoryResponse": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "items",
+          "providers",
+          "sources",
+          "next_cursor",
+          "scan_complete"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItem"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scan_complete": {
+            "type": "boolean"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectorySource"
+            }
+          }
+        }
+      },
+      "DirectorySource": {
+        "type": "object",
+        "required": [
+          "provider",
+          "status",
+          "observed_at_unix_ms",
+          "stale",
+          "coverage",
+          "total_models"
+        ],
+        "properties": {
+          "coverage": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SourceCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_at_unix_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "stale": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/SourceStatus"
+          },
+          "total_models": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
       "ErrorBody": {
         "type": "object",
         "required": [
@@ -2648,6 +3229,7 @@
               "insufficient_credit",
               "hard_limit_reached",
               "entitlement_missing",
+              "price_unavailable",
               "idempotency_conflict",
               "upstream_unavailable",
               "upstream_error",
@@ -2734,6 +3316,900 @@
           "prefix": {
             "type": "string",
             "description": "The first characters of the credential, for recognising it."
+          }
+        }
+      },
+      "Interface": {
+        "type": "string",
+        "enum": [
+          "supported",
+          "unsupported",
+          "unknown"
+        ]
+      },
+      "InventoryAccessWire": {
+        "type": "string",
+        "enum": [
+          "available",
+          "unavailable",
+          "unknown"
+        ]
+      },
+      "InventoryAgeBody": {
+        "type": "object",
+        "required": [
+          "observed_at_unix_ms",
+          "age_ms",
+          "ahead",
+          "stale"
+        ],
+        "properties": {
+          "age_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "ahead": {
+            "type": "boolean"
+          },
+          "observed_at_unix_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "stale": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "InventoryAxesBody": {
+        "type": "object",
+        "required": [
+          "lifecycle",
+          "interface",
+          "account_access",
+          "pricing",
+          "qualification"
+        ],
+        "properties": {
+          "account_access": {
+            "$ref": "#/components/schemas/InventoryStatusAxisBody"
+          },
+          "interface": {
+            "$ref": "#/components/schemas/InventoryStatusAxisBody"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/InventoryStatusAxisBody"
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/InventoryPricingAxisBody"
+          },
+          "qualification": {
+            "$ref": "#/components/schemas/InventoryQualificationBody"
+          }
+        }
+      },
+      "InventoryCoverageWire": {
+        "type": "string",
+        "enum": [
+          "unproven",
+          "complete"
+        ]
+      },
+      "InventoryDiffKindWire": {
+        "type": "string",
+        "enum": [
+          "added",
+          "changed",
+          "missing"
+        ]
+      },
+      "InventoryDiffResponse": {
+        "type": "object",
+        "required": [
+          "provider",
+          "base_hash",
+          "candidate_hash",
+          "offset",
+          "rows",
+          "next_offset"
+        ],
+        "properties": {
+          "base_hash": {
+            "type": "string"
+          },
+          "candidate_hash": {
+            "type": "string"
+          },
+          "next_offset": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider": {
+            "$ref": "#/components/schemas/InventoryProviderWire"
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryDiffRowBody"
+            }
+          }
+        }
+      },
+      "InventoryDiffRowBody": {
+        "type": "object",
+        "required": [
+          "upstream_id",
+          "kind",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "after": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventoryFactsBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "before": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventoryFactsBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "$ref": "#/components/schemas/InventoryDiffKindWire"
+          },
+          "upstream_id": {
+            "type": "string"
+          }
+        }
+      },
+      "InventoryFactsBody": {
+        "type": "object",
+        "required": [
+          "upstream_id",
+          "display_name",
+          "modality",
+          "source",
+          "lifecycle",
+          "interface",
+          "access",
+          "pricing",
+          "prices",
+          "deprecated_at_unix",
+          "replaced_by",
+          "supplier_facts"
+        ],
+        "properties": {
+          "access": {
+            "$ref": "#/components/schemas/InventoryAccessWire"
+          },
+          "deprecated_at_unix": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "interface": {
+            "$ref": "#/components/schemas/InventoryInterfaceWire"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/InventoryLifecycleWire"
+          },
+          "modality": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryPriceBody"
+            }
+          },
+          "pricing": {
+            "$ref": "#/components/schemas/InventoryPricingWire"
+          },
+          "replaced_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/InventorySourceWire"
+          },
+          "supplier_facts": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventorySupplierFactsBody",
+                "description": "Facts a keyed listing supplied with no other field; null for the public lists."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "upstream_id": {
+            "type": "string"
+          }
+        }
+      },
+      "InventoryFailureWire": {
+        "type": "string",
+        "enum": [
+          "unavailable",
+          "status",
+          "continuation",
+          "deadline",
+          "limit",
+          "invalid_listing"
+        ]
+      },
+      "InventoryHistoryEventBody": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "summary",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "refresh"
+                ]
+              },
+              "summary": {
+                "$ref": "#/components/schemas/InventoryRefreshSummaryBody"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "receipt",
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "review"
+                ]
+              },
+              "receipt": {
+                "$ref": "#/components/schemas/InventoryReviewReceiptBody"
+              }
+            }
+          }
+        ]
+      },
+      "InventoryHistoryResponse": {
+        "type": "object",
+        "required": [
+          "provider",
+          "offset",
+          "limit",
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryHistoryEventBody"
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "provider": {
+            "$ref": "#/components/schemas/InventoryProviderWire"
+          }
+        }
+      },
+      "InventoryInterfaceWire": {
+        "type": "string",
+        "enum": [
+          "supported",
+          "unsupported",
+          "unknown"
+        ]
+      },
+      "InventoryLifecycleWire": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deprecated",
+          "removed"
+        ]
+      },
+      "InventoryModelBody": {
+        "type": "object",
+        "required": [
+          "facts",
+          "axes"
+        ],
+        "properties": {
+          "axes": {
+            "$ref": "#/components/schemas/InventoryAxesBody"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/InventoryFactsBody"
+          }
+        }
+      },
+      "InventoryPageResponse": {
+        "type": "object",
+        "required": [
+          "provider",
+          "read_at_unix_ms",
+          "stale_after_seconds",
+          "state",
+          "snapshot",
+          "observation",
+          "latest_error",
+          "models",
+          "next_offset",
+          "qualification_catalogue_version"
+        ],
+        "properties": {
+          "latest_error": {
+            "$ref": "#/components/schemas/InventoryAgeBody"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryModelBody"
+            }
+          },
+          "next_offset": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "observation": {
+            "$ref": "#/components/schemas/InventoryAgeBody"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/InventoryProviderWire"
+          },
+          "qualification_catalogue_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "read_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "snapshot": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventorySnapshotBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "stale_after_seconds": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "state": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventoryStateBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "InventoryPriceBody": {
+        "type": "object",
+        "required": [
+          "amount",
+          "unit",
+          "field",
+          "source"
+        ],
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/InventorySourceWire"
+          },
+          "unit": {
+            "type": "string"
+          }
+        }
+      },
+      "InventoryPricingAxisBody": {
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "evidence",
+          "unresolved_dimensions"
+        ],
+        "properties": {
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryPriceBody"
+            }
+          },
+          "reason": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/InventoryPricingWire"
+          },
+          "unresolved_dimensions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InventoryPricingWire": {
+        "type": "string",
+        "enum": [
+          "evidenced",
+          "missing",
+          "stale",
+          "unknown"
+        ]
+      },
+      "InventoryProviderWire": {
+        "type": "string",
+        "enum": [
+          "cerebras",
+          "deepinfra",
+          "openai",
+          "anthropic",
+          "gemini"
+        ]
+      },
+      "InventoryQualificationBody": {
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "catalogue_version",
+          "routes",
+          "exact_financial_qualification"
+        ],
+        "properties": {
+          "catalogue_version": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "exact_financial_qualification": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventoryQualificationRouteBody"
+            }
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "InventoryQualificationRouteBody": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "unverified"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "unverified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InventoryRefreshSummaryBody": {
+        "type": "object",
+        "required": [
+          "attempt_id",
+          "expected_revision",
+          "started_at_unix_ms",
+          "finished_at_unix_ms",
+          "outcome"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "finished_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/InventorySummaryOutcomeBody"
+          },
+          "started_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "InventoryRemovalBody": {
+        "type": "object",
+        "required": [
+          "provider",
+          "expected_revision",
+          "base_hash",
+          "candidate_hash",
+          "missing_count",
+          "missing_ids_digest",
+          "empty_result"
+        ],
+        "properties": {
+          "base_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "candidate_hash": {
+            "type": "string"
+          },
+          "empty_result": {
+            "type": "boolean"
+          },
+          "expected_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "missing_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "missing_ids_digest": {
+            "type": "string"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/InventoryProviderWire"
+          }
+        }
+      },
+      "InventoryReviewBody": {
+        "type": "object",
+        "required": [
+          "fingerprint",
+          "actor",
+          "reason",
+          "reviewed_at_unix_ms"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "$ref": "#/components/schemas/InventoryRemovalBody"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "reviewed_at_unix_ms": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "InventoryReviewReceiptBody": {
+        "type": "object",
+        "required": [
+          "review",
+          "resulting_revision"
+        ],
+        "properties": {
+          "resulting_revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "review": {
+            "$ref": "#/components/schemas/InventoryReviewBody"
+          }
+        }
+      },
+      "InventorySnapshotBody": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "provider",
+          "sources",
+          "coverage",
+          "content_hash",
+          "total_models"
+        ],
+        "properties": {
+          "content_hash": {
+            "type": "string"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/InventoryCoverageWire"
+          },
+          "provider": {
+            "$ref": "#/components/schemas/InventoryProviderWire"
+          },
+          "schema_version": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InventorySourceWire"
+            }
+          },
+          "total_models": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "InventorySourceWire": {
+        "type": "string",
+        "enum": [
+          "cerebras_public",
+          "cerebras_account",
+          "deepinfra_public",
+          "openai_account",
+          "anthropic_account",
+          "gemini_account"
+        ]
+      },
+      "InventoryStateBody": {
+        "type": "object",
+        "required": [
+          "revision",
+          "current_hash",
+          "observed_at_unix_ms",
+          "held",
+          "held_observed_at_unix_ms",
+          "last_error",
+          "last_attempt_id",
+          "last_attempt_finished_at_unix_ms"
+        ],
+        "properties": {
+          "current_hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "held": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventoryRemovalBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "held_observed_at_unix_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "last_attempt_finished_at_unix_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "last_attempt_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/InventoryFailureWire"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "observed_at_unix_ms": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "InventoryStatusAxisBody": {
+        "type": "object",
+        "required": [
+          "status",
+          "reason",
+          "source"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          },
+          "source": {
+            "$ref": "#/components/schemas/InventorySourceWire"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "InventorySummaryOutcomeBody": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "content_hash",
+              "held",
+              "status"
+            ],
+            "properties": {
+              "content_hash": {
+                "type": "string"
+              },
+              "held": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "observed"
+                ]
+              }
+            }
+          },
+          {
+            "type": "object",
+            "required": [
+              "reason",
+              "status"
+            ],
+            "properties": {
+              "reason": {
+                "$ref": "#/components/schemas/InventoryFailureWire"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "failed"
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "InventorySupplierFactsBody": {
+        "type": "object",
+        "description": "Whitelisted listing facts kept verbatim; none of them is a capability claim.",
+        "properties": {
+          "created": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "generation_methods": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "input_token_limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "output_token_limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "owned_by": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -2955,6 +4431,15 @@
           }
         }
       },
+      "Lifecycle": {
+        "type": "string",
+        "enum": [
+          "active",
+          "deprecated",
+          "removed",
+          "unknown"
+        ]
+      },
       "LogPage": {
         "type": "object",
         "description": "A page of the request log, newest first.",
@@ -2995,7 +4480,10 @@
           "cost_charged",
           "latency_ms",
           "created_at",
-          "status"
+          "status",
+          "supplier_cost_total",
+          "supplier_cost_complete",
+          "supplier_attempts"
         ],
         "properties": {
           "cost_charged": {
@@ -3038,6 +4526,31 @@
           "status": {
             "type": "string",
             "description": "How it ended: `completed`, `failed` or `cancelled`."
+          },
+          "supplier_attempts": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many attempts it sent to suppliers. `null` when not recorded or unless the caller is\nan integrator.",
+            "minimum": 0
+          },
+          "supplier_cost_complete": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether that total is exact. `null` when not recorded or unless the caller is an\nintegrator."
+          },
+          "supplier_cost_total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What suppliers charged across its attempts, in micro-dollars: exact when\n`supplier_cost_complete`, otherwise a floor. `null` when not recorded or unless the\ncaller is an integrator.",
+            "minimum": 0
           },
           "tokens_in": {
             "type": [
@@ -3217,7 +4730,11 @@
             "minimum": 0
           },
           "model": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The model that served the requests, or `null` for requests no model answered."
           },
           "requests": {
             "type": "integer",
@@ -3791,6 +5308,14 @@
           }
         }
       },
+      "ProjectAccess": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "not_enabled",
+          "not_applicable"
+        ]
+      },
       "ProjectBody": {
         "type": "object",
         "description": "A project on the wire.",
@@ -3801,12 +5326,17 @@
           "org_id",
           "status",
           "default_model",
+          "default_effort",
           "created_at"
         ],
         "properties": {
           "created_at": {
             "type": "string",
             "description": "RFC 3339, UTC."
+          },
+          "default_effort": {
+            "type": "string",
+            "description": "Effort used when a request does not override it."
           },
           "default_model": {
             "type": [
@@ -3832,6 +5362,12 @@
             "$ref": "#/components/schemas/ResourceStatusName"
           }
         }
+      },
+      "Publication": {
+        "type": "string",
+        "enum": [
+          "published"
+        ]
       },
       "RenameOrganisation": {
         "type": "object",
@@ -3863,7 +5399,7 @@
       },
       "ResourceStatusName": {
         "type": "string",
-        "description": "An organisation's status on the wire.",
+        "description": "A resource's status on the wire (an organisation or a project).",
         "enum": [
           "active",
           "suspended",
@@ -3903,6 +5439,76 @@
           "developer"
         ]
       },
+      "RoutingRecordBody": {
+        "type": "object",
+        "description": "The immutable routing observation returned to an authorised caller.",
+        "required": [
+          "org_id",
+          "project_id",
+          "request_id",
+          "recorded_at_ms",
+          "record"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string",
+            "description": "Owning organisation."
+          },
+          "project_id": {
+            "type": "string",
+            "description": "Owning project."
+          },
+          "record": {
+            "description": "Reproducible scoring facts and result, without request content."
+          },
+          "recorded_at_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Observation time in Unix milliseconds."
+          },
+          "request_id": {
+            "type": "string",
+            "description": "Chat request identifier."
+          }
+        }
+      },
+      "RuntimeLimitsBody": {
+        "type": "object",
+        "description": "The response of `GET /v1/runtime`.",
+        "required": [
+          "routing_mode"
+        ],
+        "properties": {
+          "max_input_tokens": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "The ceiling on a chat request's conservative input token count, or null when unset.",
+            "minimum": 0
+          },
+          "routing_mode": {
+            "$ref": "#/components/schemas/RuntimeRoutingMode",
+            "description": "The active routing mode."
+          }
+        }
+      },
+      "RuntimeReadiness": {
+        "type": "string",
+        "enum": [
+          "unknown"
+        ]
+      },
+      "RuntimeRoutingMode": {
+        "type": "string",
+        "description": "The routing mode on the wire.",
+        "enum": [
+          "off",
+          "shadow",
+          "on"
+        ]
+      },
       "SetCredential": {
         "type": "object",
         "required": [
@@ -3927,6 +5533,20 @@
           }
         },
         "additionalProperties": false
+      },
+      "SourceCoverage": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "unproven"
+        ]
+      },
+      "SourceStatus": {
+        "type": "string",
+        "enum": [
+          "loaded",
+          "not_loaded"
+        ]
       },
       "SuperadminBody": {
         "type": "object",
@@ -4106,8 +5726,12 @@
       },
       "UpdateProject": {
         "type": "object",
-        "description": "`PATCH /v1/orgs/{org}/projects/{project}`: exactly one of name, tenant status, or default\nmodel. Null clears the default; omission leaves it unchanged.\n\nSend exactly one of `name`, `status` (`active` or `suspended`) or `default_model`; `null`\nclears the default.",
+        "description": "`PATCH /v1/orgs/{org}/projects/{project}`: exactly one of name, tenant status, default\nmodel or default effort. Null clears the default model; omission leaves it unchanged.\n\nSend exactly one of `name`, `status` (`active` or `suspended`), `default_model` or\n`default_effort`; `null` clears only the default model.",
         "properties": {
+          "default_effort": {
+            "type": "string",
+            "description": "`low`, `medium`, `high`, `xhigh` or `max`."
+          },
           "default_model": {
             "type": [
               "string",
@@ -4169,6 +5793,8 @@
           "p99_latency_ms",
           "percentile_sample_count",
           "percentiles_sampled",
+          "supplier_cost_total",
+          "supplier_cost_complete",
           "success_rate",
           "error_rate"
         ],
@@ -4215,6 +5841,22 @@
             "type": "integer",
             "format": "int64",
             "description": "Those that completed.",
+            "minimum": 0
+          },
+          "supplier_cost_complete": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether no request in the window has an unknown or unrecorded attempt cost. `null`\nunless the caller is an integrator."
+          },
+          "supplier_cost_total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "What suppliers charged across every attempt of the window's requests, in micro-dollars:\nexact when `supplier_cost_complete`, otherwise a floor. `null` unless the caller is an\nintegrator.",
             "minimum": 0
           },
           "total_cost": {

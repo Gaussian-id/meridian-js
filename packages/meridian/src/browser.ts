@@ -15,6 +15,12 @@ export interface BrowserClientOptions {
 
   /** The app's own forwarding route; default /api/meridian/chat. */
   route?: string
+
+  /**
+   * Headers added to every request to the route, e.g. the app's own session or trace header. The browser client
+   * sends no X-Client-Info: on a route at another origin any extra header costs a CORS preflight, so it is opt-in.
+   */
+  headers?: Record<string, string>
 }
 
 export interface BrowserClient {
@@ -40,7 +46,8 @@ export function createBrowserClient(options: BrowserClientOptions = {}): Browser
     baseUrl: route,
     fetch: options.fetch,
     timeout: options.timeout,
-    maxRetries: options.maxRetries
+    maxRetries: options.maxRetries,
+    headers: options.headers
   })
 
   // [3] The route itself is the endpoint, so the chat path is empty
