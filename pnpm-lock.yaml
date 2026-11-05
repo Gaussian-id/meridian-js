@@ -74,6 +74,9 @@ importers:
       '@gaussian-id/meridian':
         specifier: workspace:*
         version: link:../meridian
+      client-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
