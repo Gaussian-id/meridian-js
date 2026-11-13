@@ -10,3 +10,22 @@
 
 - Updated dependencies
   - @gaussian-id/meridian@0.3.0
+
+### Why minor, not patch
+
+The version follows `@gaussian-id/meridian`, whose 0.3.0 adds public API. All four packages share one version (changesets `fixed` group). See the core changelog for the full list.
+
+## 0.2.0
+
+### Minor Changes
+
+- Node.js 22 or newer is required (was 18). Dropping a runtime is breaking, so this is a minor below 1.0, never a patch.
+- Server clients send `X-Client-Info`; every client takes a `headers` option.
+
+### Patch Changes
+
+- `@gaussian-id/meridian@0.2.0`: `price_unavailable` is a known error code (0.1.0 reported it as `internal`).
+
+## 0.1.0
+
+First public preview of the Expo package, on `@gaussian-id/meridian` 0.1.0.
