@@ -390,6 +390,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/byok/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The BYOK providers this server serves, in the order a console lists them (OP. SIGIL D-13):
+         *     Gemini and OpenRouter always, every other direct provider once its switch is on.
+         */
+        get: operations["byok_providers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalogue": {
         parameters: {
             query?: never;
@@ -863,9 +883,11 @@ export interface paths {
         };
         get?: never;
         /**
-         * Register or replace an endpoint after checking it: its address must be allowed, and a key it
-         *     refuses (401 or 403) is `provider_key_rejected` with nothing stored. An endpoint that cannot be
-         *     reached is saved `not_verified`. Moving a keyed endpoint to another origin needs its key again.
+         * Register or replace an endpoint after checking it in its own format and auth: its address must
+         *     be allowed, and a key it refuses (401 or 403) is `provider_key_rejected` with nothing stored.
+         *     An endpoint that cannot be reached is saved `not_verified`. Moving a keyed endpoint to another
+         *     origin needs its key again. A scheme other than `none` needs a key (new or stored); `none`
+         *     with a key is refused, and `none` removes a stored one.
          */
         put: operations["endpoints_put"];
         post?: never;
@@ -991,6 +1013,32 @@ export interface components {
         AuditPage: {
             actions: components["schemas"]["AuditEventBody"][];
         };
+        /** @description The `auth` of a PUT. */
+        AuthBody: {
+            /**
+             * @description The header the key goes in; required with `header` and refused otherwise. An HTTP token
+             *     of at most 64 characters, compared without case, and not one the engine sets.
+             */
+            header_name?: string | null;
+            scheme: components["schemas"]["Scheme"];
+        };
+        /** @description An endpoint's auth, as metadata. */
+        AuthMetadata: {
+            /** @description The header the key goes in; null unless the scheme is `header`. */
+            header_name: string | null;
+            scheme: components["schemas"]["Scheme"];
+        };
+        /** @description A provider an organisation may bring its own key for on this server. */
+        ByokProviderInfo: {
+            /** @description The name people know the provider by. */
+            display_name: string;
+            /** @description Where the provider's keys are created; null when unknown. */
+            docs_url: string | null;
+            /** @description The provider id, as `provider-credentials/{provider}` takes it. */
+            id: string;
+            /** @description How the provider's keys start; null when they share no prefix. */
+            key_format_hint: string | null;
+        };
         /** @description A model of the active catalogue, as a customer sees it. */
         CatalogueModelBody: {
             capabilities: components["schemas"]["ModelCapabilities"];
@@ -1094,8 +1142,16 @@ export interface components {
             endpoint: components["schemas"]["EndpointMetadata"];
             /** @description The model ids the endpoint listed at this check; empty when it listed none. */
             listed_models: string[];
+            /** @description What the console should tell the person: `unencrypted_http` for a plain-`http` address. */
+            warnings: components["schemas"]["Warning"][];
         };
         EndpointMetadata: {
+            /** @description Whether its address may be plain `http`. */
+            allow_http: boolean;
+            /** @description The wire protocol the server speaks. */
+            api_format: components["schemas"]["Format"];
+            /** @description How its key is sent. */
+            auth: components["schemas"]["AuthMetadata"];
             base_url: string;
             created_at: string;
             enabled: boolean;
@@ -1123,6 +1179,11 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["ErrorBody"];
         };
+        /**
+         * @description The wire protocol of an endpoint.
+         * @enum {string}
+         */
+        Format: "openai" | "anthropic";
         /** @description An integrator's credential metadata on the wire; never the secret. */
         IntegratorBody: {
             /** @description Whether the credential is neither revoked nor expired. */
@@ -1768,7 +1829,17 @@ export interface components {
         /** @enum {string} */
         Publication: "published";
         PutEndpoint: {
-            /** @description The OpenAI-compatible root requests go under, such as `https://llm.example.com/v1`. */
+            /**
+             * @description Whether `base_url` may be plain `http` (unencrypted: prompts and key cross the network in
+             *     clear text); `false` when absent. Private addresses stay refused either way.
+             */
+            allow_http?: boolean | null;
+            api_format?: components["schemas"]["Format"] | null;
+            auth?: components["schemas"]["AuthBody"] | null;
+            /**
+             * @description The root requests go under: a host name or an IP address, an optional port and path,
+             *     such as `https://llm.example.com/v1` or `https://203.0.113.7:8443/v1`.
+             */
             base_url: string;
             /** @description Whether the models are callable; `true` when absent. */
             enabled?: boolean | null;
@@ -1842,6 +1913,11 @@ export interface components {
          * @enum {string}
          */
         RuntimeRoutingMode: "off" | "shadow" | "on";
+        /**
+         * @description How the key is sent.
+         * @enum {string}
+         */
+        Scheme: "none" | "bearer" | "header";
         SetCredential: {
             credential: string;
             policy?: components["schemas"]["CredentialPolicy"] | null;
@@ -1994,6 +2070,11 @@ export interface components {
              */
             total_tokens: number | null;
         };
+        /**
+         * @description Something the console should tell the person about a saved endpoint.
+         * @enum {string}
+         */
+        Warning: "unencrypted_http";
     };
     responses: {
         /** @description The error envelope; the request id is also in `x-request-id` */
@@ -2631,6 +2712,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    byok_providers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The BYOK providers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ByokProviderInfo"][];
                 };
             };
             "4XX": components["responses"]["Error"];

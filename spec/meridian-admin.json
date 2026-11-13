@@ -945,6 +945,41 @@
         }
       }
     },
+    "/v1/byok/providers": {
+      "get": {
+        "summary": "The BYOK providers this server serves, in the order a console lists them (OP. SIGIL D-13):\nGemini and OpenRouter always, every other direct provider once its switch is on.",
+        "operationId": "byok_providers",
+        "responses": {
+          "200": {
+            "description": "The BYOK providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ByokProviderInfo"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
     "/v1/catalogue": {
       "get": {
         "summary": "`GET /v1/catalogue`: the active supplier catalogue and version.",
@@ -2822,7 +2857,7 @@
     },
     "/v1/orgs/{org}/provider-endpoints/{name}": {
       "put": {
-        "summary": "Register or replace an endpoint after checking it: its address must be allowed, and a key it\nrefuses (401 or 403) is `provider_key_rejected` with nothing stored. An endpoint that cannot be\nreached is saved `not_verified`. Moving a keyed endpoint to another origin needs its key again.",
+        "summary": "Register or replace an endpoint after checking it in its own format and auth: its address must\nbe allowed, and a key it refuses (401 or 403) is `provider_key_rejected` with nothing stored.\nAn endpoint that cannot be reached is saved `not_verified`. Moving a keyed endpoint to another\norigin needs its key again. A scheme other than `none` needs a key (new or stored); `none`\nwith a key is refused, and `none` removes a stored one.",
         "operationId": "endpoints_put",
         "parameters": [
           {
@@ -3179,6 +3214,82 @@
           }
         }
       },
+      "AuthBody": {
+        "type": "object",
+        "description": "The `auth` of a PUT.",
+        "required": [
+          "scheme"
+        ],
+        "properties": {
+          "header_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The header the key goes in; required with `header` and refused otherwise. An HTTP token\nof at most 64 characters, compared without case, and not one the engine sets.",
+            "maxLength": 64,
+            "minLength": 1
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/Scheme"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AuthMetadata": {
+        "type": "object",
+        "description": "An endpoint's auth, as metadata.",
+        "required": [
+          "scheme",
+          "header_name"
+        ],
+        "properties": {
+          "header_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The header the key goes in; null unless the scheme is `header`."
+          },
+          "scheme": {
+            "$ref": "#/components/schemas/Scheme"
+          }
+        }
+      },
+      "ByokProviderInfo": {
+        "type": "object",
+        "description": "A provider an organisation may bring its own key for on this server.",
+        "required": [
+          "id",
+          "display_name",
+          "key_format_hint",
+          "docs_url"
+        ],
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "description": "The name people know the provider by."
+          },
+          "docs_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Where the provider's keys are created; null when unknown."
+          },
+          "id": {
+            "type": "string",
+            "description": "The provider id, as `provider-credentials/{provider}` takes it."
+          },
+          "key_format_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "How the provider's keys start; null when they share no prefix."
+          }
+        }
+      },
       "CatalogueModelBody": {
         "type": "object",
         "description": "A model of the active catalogue, as a customer sees it.",
@@ -3528,7 +3639,8 @@
         "type": "object",
         "required": [
           "endpoint",
-          "listed_models"
+          "listed_models",
+          "warnings"
         ],
         "properties": {
           "endpoint": {
@@ -3540,6 +3652,13 @@
               "type": "string"
             },
             "description": "The model ids the endpoint listed at this check; empty when it listed none."
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            },
+            "description": "What the console should tell the person: `unencrypted_http` for a plain-`http` address."
           }
         }
       },
@@ -3556,9 +3675,24 @@
           "updated_at",
           "last_checked_at",
           "last_used_at",
-          "updated_by"
+          "updated_by",
+          "api_format",
+          "auth",
+          "allow_http"
         ],
         "properties": {
+          "allow_http": {
+            "type": "boolean",
+            "description": "Whether its address may be plain `http`."
+          },
+          "api_format": {
+            "$ref": "#/components/schemas/Format",
+            "description": "The wire protocol the server speaks."
+          },
+          "auth": {
+            "$ref": "#/components/schemas/AuthMetadata",
+            "description": "How its key is sent."
+          },
           "base_url": {
             "type": "string"
           },
@@ -3692,6 +3826,14 @@
             "$ref": "#/components/schemas/ErrorBody"
           }
         }
+      },
+      "Format": {
+        "type": "string",
+        "description": "The wire protocol of an endpoint.",
+        "enum": [
+          "openai",
+          "anthropic"
+        ]
       },
       "IntegratorBody": {
         "type": "object",
@@ -5809,9 +5951,38 @@
           "models"
         ],
         "properties": {
+          "allow_http": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether `base_url` may be plain `http` (unencrypted: prompts and key cross the network in\nclear text); `false` when absent. Private addresses stay refused either way."
+          },
+          "api_format": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Format",
+                "description": "The wire protocol the server speaks; `openai` when absent."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "auth": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/AuthBody",
+                "description": "How the key is sent. Absent: none without a key; with one, `bearer` for `openai` and the\n`x-api-key` header for `anthropic`."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "base_url": {
             "type": "string",
-            "description": "The OpenAI-compatible root requests go under, such as `https://llm.example.com/v1`.",
+            "description": "The root requests go under: a host name or an IP address, an optional port and path,\nsuch as `https://llm.example.com/v1` or `https://203.0.113.7:8443/v1`.",
             "maxLength": 2048
           },
           "enabled": {
@@ -5988,6 +6159,15 @@
           "off",
           "shadow",
           "on"
+        ]
+      },
+      "Scheme": {
+        "type": "string",
+        "description": "How the key is sent.",
+        "enum": [
+          "none",
+          "bearer",
+          "header"
         ]
       },
       "SetCredential": {
@@ -6374,6 +6554,13 @@
             "minimum": 0
           }
         }
+      },
+      "Warning": {
+        "type": "string",
+        "description": "Something the console should tell the person about a saved endpoint.",
+        "enum": [
+          "unencrypted_http"
+        ]
       }
     },
     "responses": {

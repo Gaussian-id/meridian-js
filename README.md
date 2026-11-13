@@ -410,7 +410,7 @@ const admin = createAdminClient('https://YOUR-MERIDIAN-ADMIN-URL', process.env.M
 const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_reference: 'acme-1' })
 ```
 
-Request and reply shapes are the engine's own (snake_case), typed from `spec/meridian-admin.json`. The 27 operations:
+Request and reply shapes are the engine's own (snake_case), typed from `spec/meridian-admin.json`. The 28 operations:
 
 | Method                                         | What it does                                                |
 | ---------------------------------------------- | ----------------------------------------------------------- |
@@ -429,6 +429,7 @@ Request and reply shapes are the engine's own (snake_case), typed from `spec/mer
 | `providerCredentials.list(org)`                | list provider credentials                                   |
 | `providerCredentials.put(org, provider, body)` | set a provider credential                                   |
 | `providerCredentials.delete(org, provider)`    | delete a provider credential                                |
+| `byokProviders.list()`                         | list the providers this engine takes a key for              |
 | `byokPolicy.get(org)`                          | read the BYOK policy (`prefer` or `require`)                |
 | `byokPolicy.put(org, body)`                    | set the BYOK policy                                         |
 | `providerEndpoints.list(org)`                  | list self-hosted endpoints                                  |

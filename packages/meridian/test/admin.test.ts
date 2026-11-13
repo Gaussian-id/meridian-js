@@ -128,6 +128,7 @@ const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
   'PUT /v1/orgs/{org}/provider-credentials/{provider}': ops =>
     ops.providerCredentials.put('o1', 'gemini', { credential: 'x' }),
   'DELETE /v1/orgs/{org}/provider-credentials/{provider}': ops => ops.providerCredentials.delete('o1', 'gemini'),
+  'GET /v1/byok/providers': ops => ops.byokProviders.list(),
   'GET /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.get('o1'),
   'PUT /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.put('o1', { policy: 'require' }),
   'GET /v1/orgs/{org}/provider-endpoints': ops => ops.providerEndpoints.list('o1'),
@@ -205,7 +206,7 @@ describeEngine('admin operations match the pinned spec', () => {
     // No method hides outside the table, and each call reached the route the spec declares
     const methodCount = Object.values(ops).reduce((sum, group: object) => sum + Object.keys(group).length, 0)
 
-    expect(integratorOperations).toHaveLength(35)
+    expect(integratorOperations).toHaveLength(36)
     expect(
       [...EXCLUDED_PRICE_OPERATIONS, ...UNWRAPPED_OPERATIONS].every(operation =>
         integratorOperations.includes(operation)
@@ -335,9 +336,12 @@ describeFake('self-hosted endpoints and the BYOK policy', () => {
     const { data: org } = await ops.orgs.create({ name: 'SDK endpoints', external_reference: unique() })
 
     const put = await ops.providerEndpoints.put(org!.id, 'lab', {
-      base_url: 'https://llm.example.com/v1',
+      base_url: 'http://203.0.113.7:8000/v1',
       key: 'endpoint-secret-0000',
       models: ['llama3:8b'],
+      api_format: 'anthropic',
+      auth: { scheme: 'header', header_name: 'x-lab-key' },
+      allow_http: true,
       updated_by: 'Ada Lovelace'
     })
 
@@ -346,7 +350,17 @@ describeFake('self-hosted endpoints and the BYOK policy', () => {
     const removed = await ops.providerEndpoints.delete(org!.id, 'lab')
 
     expect(put.error).toBeNull()
-    expect(put.data).toMatchObject({ endpoint: { name: 'lab', key_hint: '0000', models: ['llama3:8b'] } })
+    expect(put.data).toMatchObject({
+      endpoint: {
+        name: 'lab',
+        key_hint: '0000',
+        models: ['llama3:8b'],
+        api_format: 'anthropic',
+        auth: { scheme: 'header', header_name: 'x-lab-key' },
+        allow_http: true
+      },
+      warnings: ['unencrypted_http']
+    })
     expect(put.data!.listed_models).toEqual(expect.any(Array))
     expect(listed.data).toMatchObject([{ name: 'lab', enabled: true, updated_by: 'Ada Lovelace' }])
     expect(checked.data).toMatchObject({ endpoint: { name: 'lab' } })
@@ -373,6 +387,21 @@ describeFake('self-hosted endpoints and the BYOK policy', () => {
 
     expect(refused.error).toMatchObject({ code: 'endpoint_address_refused', status: 400 })
     expect(full.error).toMatchObject({ code: 'limit_reached', status: 409 })
+  })
+
+  it('lists the providers this engine takes a key for, in display order', async () => {
+    const { ops } = admin()
+
+    const { data, error } = await ops.byokProviders.list()
+
+    expect(error).toBeNull()
+    expect(data?.map(provider => provider.id)).toEqual(['openai', 'anthropic'])
+    expect(data?.[0]).toEqual({
+      id: 'openai',
+      display_name: 'OpenAI',
+      key_format_hint: 'sk-',
+      docs_url: 'https://platform.openai.com/api-keys'
+    })
   })
 
   it('reads and sets the BYOK policy', async () => {

@@ -23,6 +23,12 @@ export function createFakeAdmin(): AdminRouter {
   const endpoints = new Map<string, Record<string, unknown>>()
   let next = 0
   const id = (prefix: string) => `${prefix}_${++next}`
+
+  const byokProviders = [
+    { id: 'openai', display_name: 'OpenAI', key_format_hint: 'sk-', docs_url: 'https://platform.openai.com/api-keys' },
+    { id: 'anthropic', display_name: 'Anthropic', key_format_hint: 'sk-ant-', docs_url: null }
+  ]
+
   const json = (status: number, value: unknown): Scripted => ({ status, json: value })
 
   return (request, payload) => {
@@ -47,6 +53,7 @@ export function createFakeAdmin(): AdminRouter {
     }
 
     if (path === '/v1/orgs' && request.method === 'GET') return json(200, [...orgs.values()])
+    if (path === '/v1/byok/providers') return json(200, byokProviders)
 
     if (parts[2] === 'by-reference') {
       const org = [...orgs.values()].find(candidate => candidate.external_reference === decodeURIComponent(parts[3]!))
@@ -102,7 +109,7 @@ export function createFakeAdmin(): AdminRouter {
 
       if (request.method === 'DELETE') return endpoints.delete(key) ? { status: 204 } : engineError('not_found')
       if (request.method === 'POST')
-        return stored ? json(200, { endpoint: stored, listed_models: [] }) : engineError('not_found')
+        return stored ? json(200, { endpoint: stored, listed_models: [], warnings: [] }) : engineError('not_found')
 
       const row = {
         org: org.id,
@@ -113,12 +120,19 @@ export function createFakeAdmin(): AdminRouter {
         status: 'reachable',
         key_hint:
           typeof body.key === 'string' ? body.key.slice(-4) : body.key === null ? null : (stored?.key_hint ?? null),
+        api_format: body.api_format ?? 'openai',
+        auth: { scheme: 'none', header_name: null, ...(body.auth as object | undefined) },
+        allow_http: body.allow_http ?? false,
         updated_by: body.updated_by ?? null
       }
 
       endpoints.set(key, row)
 
-      return json(200, { endpoint: row, listed_models: [] })
+      return json(200, {
+        endpoint: row,
+        listed_models: [],
+        warnings: String(body.base_url).startsWith('http:') ? ['unencrypted_http'] : []
+      })
     }
 
     // [5] Projects, keys and project models

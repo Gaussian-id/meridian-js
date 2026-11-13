@@ -67,6 +67,11 @@ export interface AdminClient {
     delete(org: string, provider: string, o?: RequestOptions): Done
   }
 
+  /** The providers this engine takes an organisation's own key for, in display order; any other is refused. */
+  byokProviders: {
+    list(o?: RequestOptions): Out<P['/v1/byok/providers']['get']>
+  }
+
   /** What happens when a customer key fails: `prefer` falls back to Gaussian's key, `require` fails the request. */
   byokPolicy: {
     get(org: string, o?: RequestOptions): Out<P['/v1/orgs/{org}/byok-policy']['get']>
@@ -222,6 +227,7 @@ function createAdminApi(transport: Transport): AdminClient {
       put: (org, provider, body, o) => write('PUT', path`/v1/orgs/${org}/provider-credentials/${provider}`, body, o),
       delete: (org, provider, o) => remove(path`/v1/orgs/${org}/provider-credentials/${provider}`, o)
     },
+    byokProviders: { list: o => read('/v1/byok/providers', o) },
     byokPolicy: {
       get: (org, o) => read(path`/v1/orgs/${org}/byok-policy`, o),
       put: (org, body, o) => write('PUT', path`/v1/orgs/${org}/byok-policy`, body, o)
