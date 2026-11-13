@@ -29,6 +29,73 @@
         }
       }
     },
+    "/mcp": {
+      "post": {
+        "summary": "Serves one MCP message.",
+        "operationId": "public_mcp_mcp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/McpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The JSON-RPC response; a tool that fails answers a result with isError: true whose text is the error envelope. A legacy-era method error (-32601, -32602) also answers 200. subscriptions/listen answers a short event stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "A notification, accepted: no body"
+          },
+          "400": {
+            "description": "A JSON-RPC error: not JSON (-32700), not one JSON-RPC request (-32600), invalid params (-32602), header mismatch (-32020) or an unsupported protocol version (-32022)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "A 2026-07-28 request for a method this server does not have (-32601)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/McpErrorResponse"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "ProjectKey": []
+          }
+        ]
+      }
+    },
     "/ready": {
       "get": {
         "summary": "`GET /ready`.",
@@ -653,7 +720,10 @@
               "invalid_token",
               "permission_denied",
               "not_found",
-              "conflict"
+              "conflict",
+              "provider_key_rejected",
+              "endpoint_address_refused",
+              "limit_reached"
             ]
           },
           "message": {
@@ -728,12 +798,143 @@
           }
         }
       },
+      "JsonRpcVersion": {
+        "type": "string",
+        "description": "The JSON-RPC version every MCP message names.",
+        "enum": [
+          "2.0"
+        ]
+      },
       "ListObject": {
         "type": "string",
         "description": "The `object` of the model list.",
         "enum": [
           "list"
         ]
+      },
+      "McpError": {
+        "type": "object",
+        "description": "A JSON-RPC error object. The message is fixed per code.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32",
+            "description": "`-32700`, `-32600`, `-32601`, `-32602`, `-32603`, `-32020` (header mismatch) or `-32022`\n(unsupported protocol version)."
+          },
+          "data": {
+            "description": "On `-32022`: `supported`, and `requested` when it is short visible text."
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "McpErrorResponse": {
+        "type": "object",
+        "description": "A JSON-RPC error response; the id is `null` when the request's could not be read.",
+        "required": [
+          "jsonrpc",
+          "id",
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/McpError"
+          },
+          "id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/McpId"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jsonrpc": {
+            "$ref": "#/components/schemas/JsonRpcVersion"
+          }
+        }
+      },
+      "McpId": {
+        "oneOf": [
+          {
+            "type": "string",
+            "description": "A string id."
+          },
+          {
+            "type": "integer",
+            "format": "int64",
+            "description": "An integer id."
+          }
+        ],
+        "description": "A JSON-RPC request id: a string or an integer, never `null`."
+      },
+      "McpRequest": {
+        "type": "object",
+        "description": "One MCP message, as one JSON-RPC 2.0 object (a batch array is refused). With an `id` it is a\nrequest; without one, a notification (202, no body).",
+        "required": [
+          "jsonrpc",
+          "method"
+        ],
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/McpId",
+                "description": "Absent on a notification."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "jsonrpc": {
+            "$ref": "#/components/schemas/JsonRpcVersion"
+          },
+          "method": {
+            "type": "string",
+            "description": "`server/discover`, `tools/list`, `tools/call` or `subscriptions/listen` (2026-07-28);\n`initialize`, `ping`, `tools/list` or `tools/call` (2025-03-26 to 2025-11-25)."
+          },
+          "params": {
+            "description": "The method's parameters; a 2026-07-28 request carries `_meta` with\n`io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities`."
+          }
+        }
+      },
+      "McpResponse": {
+        "type": "object",
+        "description": "A JSON-RPC response: a result, or an error. A tool's own failure is a result with\n`isError: true` whose text is the engine's error envelope.",
+        "required": [
+          "jsonrpc",
+          "id"
+        ],
+        "properties": {
+          "error": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/McpError",
+                "description": "Present instead of `result` on a protocol error."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "$ref": "#/components/schemas/McpId",
+            "description": "The request's id."
+          },
+          "jsonrpc": {
+            "$ref": "#/components/schemas/JsonRpcVersion"
+          },
+          "result": {
+            "description": "The method's result; a 2026-07-28 result carries `resultType: \"complete\"`."
+          }
+        }
       },
       "MessageContent": {
         "oneOf": [

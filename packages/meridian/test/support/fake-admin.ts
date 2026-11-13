@@ -19,6 +19,8 @@ export function createFakeAdmin(): AdminRouter {
   const keys = new Map<string, { id: string; project_id: string; key_prefix: string; name: string | null }>()
   const models = new Map<string, string[]>()
   const credentials = new Map<string, { provider: string; hint: string; policy: 'prefer' | 'require' }>()
+  const policies = new Map<string, 'prefer' | 'require'>()
+  const endpoints = new Map<string, Record<string, unknown>>()
   let next = 0
   const id = (prefix: string) => `${prefix}_${++next}`
   const json = (status: number, value: unknown): Scripted => ({ status, json: value })
@@ -82,7 +84,44 @@ export function createFakeAdmin(): AdminRouter {
       return json(200, record)
     }
 
-    // [4] Projects, keys and project models
+    // [4] The BYOK policy, and self-hosted endpoints (a key is kept as its last four characters only)
+    if (parts[3] === 'byok-policy') {
+      if (request.method === 'PUT') policies.set(org.id, body.policy as 'prefer' | 'require')
+
+      return json(200, { policy: policies.get(org.id) ?? 'prefer' })
+    }
+
+    if (parts[3] === 'provider-endpoints') {
+      if (request.method === 'GET')
+        return json(
+          200,
+          [...endpoints.values()].filter(row => row.org === org.id)
+        )
+      const key = `${org.id}/${parts[4]}`
+      const stored = endpoints.get(key)
+
+      if (request.method === 'DELETE') return endpoints.delete(key) ? { status: 204 } : engineError('not_found')
+      if (request.method === 'POST')
+        return stored ? json(200, { endpoint: stored, listed_models: [] }) : engineError('not_found')
+
+      const row = {
+        org: org.id,
+        name: parts[4],
+        base_url: body.base_url,
+        models: body.models,
+        enabled: body.enabled ?? true,
+        status: 'reachable',
+        key_hint:
+          typeof body.key === 'string' ? body.key.slice(-4) : body.key === null ? null : (stored?.key_hint ?? null),
+        updated_by: body.updated_by ?? null
+      }
+
+      endpoints.set(key, row)
+
+      return json(200, { endpoint: row, listed_models: [] })
+    }
+
+    // [5] Projects, keys and project models
     if (parts[3] === 'projects' && parts.length === 4) {
       if (request.method === 'GET')
         return json(

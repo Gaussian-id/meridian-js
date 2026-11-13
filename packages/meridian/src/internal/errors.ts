@@ -1,4 +1,4 @@
-/** The engine's 29 error codes (meridian-domain/src/error.rs). Task 9 checks this list against the spec. */
+/** The engine's 32 error codes (meridian-domain/src/error.rs). Task 9 checks this list against the spec. */
 export const ENGINE_ERROR_CODES = [
   'invalid_request',
   'invalid_api_key',
@@ -28,7 +28,10 @@ export const ENGINE_ERROR_CODES = [
   'invalid_token',
   'permission_denied',
   'not_found',
-  'conflict'
+  'conflict',
+  'provider_key_rejected',
+  'endpoint_address_refused',
+  'limit_reached'
 ] as const
 
 /**
@@ -83,6 +86,8 @@ export interface EngineEnvelope {
 export const STATUS_BY_CODE: Record<EngineErrorCode, number> = {
   invalid_request: 400,
   capability_unsupported: 400,
+  provider_key_rejected: 400,
+  endpoint_address_refused: 400,
   invalid_api_key: 401,
   key_revoked: 401,
   key_expired: 401,
@@ -101,6 +106,7 @@ export const STATUS_BY_CODE: Record<EngineErrorCode, number> = {
   method_not_allowed: 405,
   idempotency_conflict: 409,
   conflict: 409,
+  limit_reached: 409,
   body_too_large: 413,
   rate_limited: 429,
   hard_limit_reached: 429,

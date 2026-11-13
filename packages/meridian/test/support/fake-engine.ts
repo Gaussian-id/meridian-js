@@ -42,7 +42,10 @@ const STATUS: Record<string, number> = {
   service_unavailable: 503,
   not_found: 404,
   method_not_allowed: 405,
-  permission_denied: 403
+  permission_denied: 403,
+  provider_key_rejected: 400,
+  endpoint_address_refused: 400,
+  limit_reached: 409
 }
 
 const TYPE: Record<string, string> = {
@@ -53,7 +56,10 @@ const TYPE: Record<string, string> = {
   rate_limited: 'rate_limit_error',
   service_unavailable: 'api_error',
   not_found: 'invalid_request_error',
-  method_not_allowed: 'invalid_request_error'
+  method_not_allowed: 'invalid_request_error',
+  provider_key_rejected: 'invalid_request_error',
+  endpoint_address_refused: 'invalid_request_error',
+  limit_reached: 'invalid_request_error'
 }
 
 let sequence = 0

@@ -9,7 +9,7 @@
 
 Gauss Meridian for Nuxt: a Nuxt module with a server client, a forwarding handler and a keyless composable. It builds on [`@gaussian-id/meridian`](https://www.npmjs.com/package/@gaussian-id/meridian).
 
-> **Status:** Public preview, v0.2.0. Node 22 or later. Peer dependencies: `nuxt >= 3.13`, `h3 >= 1.12 < 2`.
+> **Status:** Public preview, v0.3.0. Node 22 or later. Peer dependencies: `nuxt >= 3.13`, `h3 >= 1.12 < 2`.
 
 ## Install
 

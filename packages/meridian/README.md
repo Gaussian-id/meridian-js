@@ -9,7 +9,7 @@
 
 The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.
 
-> **Status:** Public preview, v0.2.0. Runtime floor: Node 22 (`engines.node >= 22`), the same floor as supabase-js. The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
+> **Status:** Public preview, v0.3.0. Runtime floor: Node 22 (`engines.node >= 22`), the same floor as supabase-js. The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
 
 ## Contents
 
@@ -253,12 +253,14 @@ interface MeridianError {
 
 ### Error codes
 
-The 29 engine codes and the SDK's two own codes. Status is the HTTP status the engine uses; a code is retryable by the SDK as listed.
+The 32 engine codes and the SDK's two own codes. Status is the HTTP status the engine uses; a code is retryable by the SDK as listed.
 
 | Code                       | Status                | Retryable                                                    |
 | -------------------------- | --------------------- | ------------------------------------------------------------ |
 | `invalid_request`          | 400                   | no                                                           |
 | `capability_unsupported`   | 400                   | no                                                           |
+| `provider_key_rejected`    | 400                   | no                                                           |
+| `endpoint_address_refused` | 400                   | no                                                           |
 | `invalid_api_key`          | 401                   | no                                                           |
 | `key_revoked`              | 401                   | no                                                           |
 | `key_expired`              | 401                   | no                                                           |
@@ -277,6 +279,7 @@ The 29 engine codes and the SDK's two own codes. Status is the HTTP status the e
 | `method_not_allowed`       | 405                   | no                                                           |
 | `idempotency_conflict`     | 409                   | no                                                           |
 | `conflict`                 | 409                   | no                                                           |
+| `limit_reached`            | 409                   | no                                                           |
 | `body_too_large`           | 413                   | no                                                           |
 | `rate_limited`             | 429                   | yes                                                          |
 | `hard_limit_reached`       | 429                   | no                                                           |
@@ -407,7 +410,7 @@ const admin = createAdminClient('https://YOUR-MERIDIAN-ADMIN-URL', process.env.M
 const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_reference: 'acme-1' })
 ```
 
-Request and reply shapes are the engine's own (snake_case), typed from [`spec/meridian-admin.json`](https://github.com/Gaussian-id/meridian-js/blob/main/spec/meridian-admin.json). The 21 operations:
+Request and reply shapes are the engine's own (snake_case), typed from [`spec/meridian-admin.json`](https://github.com/Gaussian-id/meridian-js/blob/main/spec/meridian-admin.json). The 27 operations:
 
 | Method                                         | What it does                                                |
 | ---------------------------------------------- | ----------------------------------------------------------- |
@@ -426,9 +429,15 @@ Request and reply shapes are the engine's own (snake_case), typed from [`spec/me
 | `providerCredentials.list(org)`                | list provider credentials                                   |
 | `providerCredentials.put(org, provider, body)` | set a provider credential                                   |
 | `providerCredentials.delete(org, provider)`    | delete a provider credential                                |
+| `byokPolicy.get(org)`                          | read the BYOK policy (`prefer` or `require`)                |
+| `byokPolicy.put(org, body)`                    | set the BYOK policy                                         |
+| `providerEndpoints.list(org)`                  | list self-hosted endpoints                                  |
+| `providerEndpoints.put(org, name, body)`       | register or replace an endpoint after checking it           |
+| `providerEndpoints.check(org, name)`           | check an endpoint again and record the result               |
+| `providerEndpoints.delete(org, name)`          | delete an endpoint                                          |
 | `projectModels.get(org, project)`              | read a project's model settings                             |
 | `projectModels.put(org, project, body)`        | replace a project's model settings                          |
-| `models.list()`                                | list the models                                             |
+| `models.list()`                                | list the active catalogue's models                          |
 | `models.get(model)`                            | read one model                                              |
 | `analytics.usage(query)`                       | usage analytics                                             |
 | `logs.list(query)`                             | request logs                                                |

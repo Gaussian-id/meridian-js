@@ -1,6 +1,6 @@
 {
   "name": "@gaussian-id/meridian-next",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gauss Meridian for Next.js: server-side client, Pages Router helpers and a keyless browser client.",
   "keywords": [
     "meridian",

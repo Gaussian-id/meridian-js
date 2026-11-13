@@ -977,6 +977,84 @@
         ]
       }
     },
+    "/v1/catalogue/models": {
+      "get": {
+        "summary": "`GET /v1/catalogue/models`: the active catalogue, for any signed-in user.",
+        "operationId": "models_catalogue",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CatalogueModelBody"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/catalogue/models/{model}": {
+      "get": {
+        "summary": "`GET /v1/catalogue/models/{model}`: one model of the active catalogue.",
+        "operationId": "models_one",
+        "parameters": [
+          {
+            "name": "model",
+            "in": "path",
+            "description": "model identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueModelBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
     "/v1/catalogue/{version}": {
       "get": {
         "summary": "`GET /v1/catalogue/{version}`: an immutable supplier catalogue version.",
@@ -1325,84 +1403,6 @@
         ]
       }
     },
-    "/v1/models": {
-      "get": {
-        "summary": "`GET /v1/models`: the active catalogue, for any signed-in user.",
-        "operationId": "models_catalogue",
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CatalogueModelBody"
-                  }
-                }
-              }
-            }
-          },
-          "4XX": {
-            "$ref": "#/components/responses/Error"
-          },
-          "5XX": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "AdminBearer": []
-          },
-          {
-            "IntegratorKey": []
-          }
-        ]
-      }
-    },
-    "/v1/models/{model}": {
-      "get": {
-        "summary": "`GET /v1/models/{model}`: one model of the active catalogue.",
-        "operationId": "models_one",
-        "parameters": [
-          {
-            "name": "model",
-            "in": "path",
-            "description": "model identifier",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CatalogueModelBody"
-                }
-              }
-            }
-          },
-          "4XX": {
-            "$ref": "#/components/responses/Error"
-          },
-          "5XX": {
-            "$ref": "#/components/responses/Error"
-          }
-        },
-        "security": [
-          {
-            "AdminBearer": []
-          },
-          {
-            "IntegratorKey": []
-          }
-        ]
-      }
-    },
     "/v1/onboarding/advance": {
       "post": {
         "summary": "`POST /v1/onboarding/advance`: one step forward.",
@@ -1722,6 +1722,100 @@
             "$ref": "#/components/responses/Error"
           }
         }
+      }
+    },
+    "/v1/orgs/{org}/byok-policy": {
+      "get": {
+        "summary": "The organisation's BYOK policy: what happens when a customer key fails.",
+        "operationId": "byok_policy_get",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The organisation's BYOK policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set the organisation's BYOK policy, with or without credentials.",
+        "operationId": "byok_policy_set",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The organisation's BYOK policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
       }
     },
     "/v1/orgs/{org}/members": {
@@ -2577,7 +2671,7 @@
     },
     "/v1/orgs/{org}/provider-credentials/{provider}": {
       "put": {
-        "summary": "Replace a credential; plaintext exists only in this request and in encryption memory.",
+        "summary": "Replace a credential after the provider has been asked about it (OP. SIGIL D-12). A key the\nprovider refuses (401 or 403) is `provider_key_rejected`, naming the provider, and nothing is\nstored; a provider that cannot be asked leaves the key `not_verified`. The plaintext exists\nonly in this request, the check and encryption memory.",
         "operationId": "byok_set",
         "parameters": [
           {
@@ -2662,6 +2756,209 @@
         "responses": {
           "204": {
             "description": "No content"
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/orgs/{org}/provider-endpoints": {
+      "get": {
+        "summary": "List an organisation's endpoints, by name.",
+        "operationId": "endpoints_list",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Endpoint metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EndpointMetadata"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/orgs/{org}/provider-endpoints/{name}": {
+      "put": {
+        "summary": "Register or replace an endpoint after checking it: its address must be allowed, and a key it\nrefuses (401 or 403) is `provider_key_rejected` with nothing stored. An endpoint that cannot be\nreached is saved `not_verified`. Moving a keyed endpoint to another origin needs its key again.",
+        "operationId": "endpoints_put",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "endpoint name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutEndpoint"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The endpoint and what its check listed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointCheckResult"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Remove an endpoint: its models stop being callable.",
+        "operationId": "endpoints_delete",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "endpoint name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
+    "/v1/orgs/{org}/provider-endpoints/{name}/check": {
+      "post": {
+        "summary": "Check an endpoint again and record what it found. A key it refuses is recorded\n`not_verified` and answered `provider_key_rejected`.",
+        "operationId": "endpoints_check",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "description": "endpoint name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The endpoint and what its check listed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EndpointCheckResult"
+                }
+              }
+            }
           },
           "4XX": {
             "$ref": "#/components/responses/Error"
@@ -3012,7 +3309,10 @@
           "hint",
           "created_at",
           "last_used_at",
-          "policy"
+          "policy",
+          "status",
+          "verified_at",
+          "updated_by"
         ],
         "properties": {
           "created_at": {
@@ -3035,6 +3335,24 @@
           },
           "provider": {
             "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CredentialStatus",
+            "description": "What the provider said about the key when it was saved."
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who saved the key, as the integrator named them."
+          },
+          "verified_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When the provider accepted the key; null when it was not verified."
           }
         }
       },
@@ -3043,6 +3361,13 @@
         "enum": [
           "prefer",
           "require"
+        ]
+      },
+      "CredentialStatus": {
+        "type": "string",
+        "enum": [
+          "verified",
+          "not_verified"
         ]
       },
       "DirectoryItem": {
@@ -3199,6 +3524,99 @@
           }
         }
       },
+      "EndpointCheckResult": {
+        "type": "object",
+        "required": [
+          "endpoint",
+          "listed_models"
+        ],
+        "properties": {
+          "endpoint": {
+            "$ref": "#/components/schemas/EndpointMetadata"
+          },
+          "listed_models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The model ids the endpoint listed at this check; empty when it listed none."
+          }
+        }
+      },
+      "EndpointMetadata": {
+        "type": "object",
+        "required": [
+          "name",
+          "base_url",
+          "models",
+          "enabled",
+          "status",
+          "key_hint",
+          "created_at",
+          "updated_at",
+          "last_checked_at",
+          "last_used_at",
+          "updated_by"
+        ],
+        "properties": {
+          "base_url": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "key_hint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The last four characters of the key; null when the endpoint has none."
+          },
+          "last_checked_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EndpointState"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "EndpointState": {
+        "type": "string",
+        "enum": [
+          "reachable",
+          "not_verified"
+        ]
+      },
       "ErrorBody": {
         "type": "object",
         "required": [
@@ -3239,7 +3657,10 @@
               "invalid_token",
               "permission_denied",
               "not_found",
-              "conflict"
+              "conflict",
+              "provider_key_rejected",
+              "endpoint_address_refused",
+              "limit_reached"
             ]
           },
           "message": {
@@ -5308,6 +5729,18 @@
           }
         }
       },
+      "PolicyBody": {
+        "type": "object",
+        "required": [
+          "policy"
+        ],
+        "properties": {
+          "policy": {
+            "$ref": "#/components/schemas/CredentialPolicy"
+          }
+        },
+        "additionalProperties": false
+      },
       "ProjectAccess": {
         "type": "string",
         "enum": [
@@ -5368,6 +5801,54 @@
         "enum": [
           "published"
         ]
+      },
+      "PutEndpoint": {
+        "type": "object",
+        "required": [
+          "base_url",
+          "models"
+        ],
+        "properties": {
+          "base_url": {
+            "type": "string",
+            "description": "The OpenAI-compatible root requests go under, such as `https://llm.example.com/v1`.",
+            "maxLength": 2048
+          },
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the models are callable; `true` when absent."
+          },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The endpoint's key: absent keeps the stored one, `null` removes it.",
+            "maxLength": 4096,
+            "minLength": 8
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The model names to expose as `self/<name>/<model>`.",
+            "maxItems": 50
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name of the person making the change.",
+            "maxLength": 120,
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
       },
       "RenameOrganisation": {
         "type": "object",
@@ -5530,6 +6011,15 @@
                 "type": "null"
               }
             ]
+          },
+          "updated_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name of the person making the change, as the integrator shows it.",
+            "maxLength": 120,
+            "minLength": 1
           }
         },
         "additionalProperties": false

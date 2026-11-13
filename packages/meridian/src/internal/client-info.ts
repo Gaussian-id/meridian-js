@@ -1,5 +1,5 @@
 /** This package's version; kept equal to package.json's `version` when a release is cut. */
-export const VERSION = '0.2.0'
+export const VERSION = '0.3.0'
 
 interface RuntimeGlobals {
   Deno?: { version?: { deno?: string } }
@@ -22,7 +22,7 @@ function runtime(): { name: string; version?: string } | null {
 
 /**
  * The `X-Client-Info` value the server and admin clients send, in supabase-js's format:
- * `meridian-js/0.2.0; runtime=node; runtime-version=24.14.0`. It names no app, key or user.
+ * `meridian-js/0.3.0; runtime=node; runtime-version=24.14.0`. It names no app, key or user.
  */
 export function clientInfo(): string {
   const parts = [`meridian-js/${VERSION}`]

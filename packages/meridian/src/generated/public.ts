@@ -18,6 +18,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mcp": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Serves one MCP message. */
+        post: operations["public_mcp_mcp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ready": {
         parameters: {
             query?: never;
@@ -248,7 +265,7 @@ export interface components {
         };
         ErrorBody: {
             /** @enum {string} */
-            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "price_unavailable" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
+            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "price_unavailable" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict" | "provider_key_rejected" | "endpoint_address_refused" | "limit_reached";
             message: string;
             /** Format: uuid */
             request_id: string;
@@ -275,10 +292,65 @@ export interface components {
             url: string;
         };
         /**
+         * @description The JSON-RPC version every MCP message names.
+         * @enum {string}
+         */
+        JsonRpcVersion: "2.0";
+        /**
          * @description The `object` of the model list.
          * @enum {string}
          */
         ListObject: "list";
+        /** @description A JSON-RPC error object. The message is fixed per code. */
+        McpError: {
+            /**
+             * Format: int32
+             * @description `-32700`, `-32600`, `-32601`, `-32602`, `-32603`, `-32020` (header mismatch) or `-32022`
+             *     (unsupported protocol version).
+             */
+            code: number;
+            /** @description On `-32022`: `supported`, and `requested` when it is short visible text. */
+            data?: unknown;
+            message: string;
+        };
+        /** @description A JSON-RPC error response; the id is `null` when the request's could not be read. */
+        McpErrorResponse: {
+            error: components["schemas"]["McpError"];
+            id: components["schemas"]["McpId"] | null;
+            jsonrpc: components["schemas"]["JsonRpcVersion"];
+        };
+        /** @description A JSON-RPC request id: a string or an integer, never `null`. */
+        McpId: string | number;
+        /**
+         * @description One MCP message, as one JSON-RPC 2.0 object (a batch array is refused). With an `id` it is a
+         *     request; without one, a notification (202, no body).
+         */
+        McpRequest: {
+            id?: components["schemas"]["McpId"] | null;
+            jsonrpc: components["schemas"]["JsonRpcVersion"];
+            /**
+             * @description `server/discover`, `tools/list`, `tools/call` or `subscriptions/listen` (2026-07-28);
+             *     `initialize`, `ping`, `tools/list` or `tools/call` (2025-03-26 to 2025-11-25).
+             */
+            method: string;
+            /**
+             * @description The method's parameters; a 2026-07-28 request carries `_meta` with
+             *     `io.modelcontextprotocol/protocolVersion` and `io.modelcontextprotocol/clientCapabilities`.
+             */
+            params?: unknown;
+        };
+        /**
+         * @description A JSON-RPC response: a result, or an error. A tool's own failure is a result with
+         *     `isError: true` whose text is the engine's error envelope.
+         */
+        McpResponse: {
+            error?: components["schemas"]["McpError"] | null;
+            /** @description The request's id. */
+            id: components["schemas"]["McpId"];
+            jsonrpc: components["schemas"]["JsonRpcVersion"];
+            /** @description The method's result; a 2026-07-28 result carries `resultType: "complete"`. */
+            result?: unknown;
+        };
         /** @description A message content: plain text, or a list of typed parts. */
         MessageContent: string | components["schemas"]["ContentPart"][];
         /**
@@ -427,6 +499,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    public_mcp_mcp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["McpRequest"];
+            };
+        };
+        responses: {
+            /** @description The JSON-RPC response; a tool that fails answers a result with isError: true whose text is the error envelope. A legacy-era method error (-32601, -32602) also answers 200. subscriptions/listen answers a short event stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpResponse"];
+                    "text/event-stream": string;
+                };
+            };
+            /** @description A notification, accepted: no body */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A JSON-RPC error: not JSON (-32700), not one JSON-RPC request (-32600), invalid params (-32602), header mismatch (-32020) or an unsupported protocol version (-32022) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpErrorResponse"];
+                };
+            };
+            /** @description A 2026-07-28 request for a method this server does not have (-32601) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["McpErrorResponse"];
                 };
             };
             "4XX": components["responses"]["Error"];

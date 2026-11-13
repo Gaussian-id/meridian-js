@@ -407,6 +407,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/catalogue/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /v1/catalogue/models`: the active catalogue, for any signed-in user. */
+        get: operations["models_catalogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/catalogue/models/{model}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** `GET /v1/catalogue/models/{model}`: one model of the active catalogue. */
+        get: operations["models_one"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/catalogue/{version}": {
         parameters: {
             query?: never;
@@ -487,40 +521,6 @@ export interface paths {
         };
         /** `GET /v1/logs?project_id=&page_size=&cursor=`. */
         get: operations["usage_logs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/models": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** `GET /v1/models`: the active catalogue, for any signed-in user. */
-        get: operations["models_catalogue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/models/{model}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** `GET /v1/models/{model}`: one model of the active catalogue. */
-        get: operations["models_one"];
         put?: never;
         post?: never;
         delete?: never;
@@ -631,6 +631,24 @@ export interface paths {
         head?: never;
         /** `PATCH /v1/orgs/{org}`: renames it (owners). */
         patch: operations["orgs_rename"];
+        trace?: never;
+    };
+    "/v1/orgs/{org}/byok-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The organisation's BYOK policy: what happens when a customer key fails. */
+        get: operations["byok_policy_get"];
+        /** Set the organisation's BYOK policy, with or without credentials. */
+        put: operations["byok_policy_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/orgs/{org}/members": {
@@ -804,11 +822,75 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Replace a credential; plaintext exists only in this request and in encryption memory. */
+        /**
+         * Replace a credential after the provider has been asked about it (OP. SIGIL D-12). A key the
+         *     provider refuses (401 or 403) is `provider_key_rejected`, naming the provider, and nothing is
+         *     stored; a provider that cannot be asked leaves the key `not_verified`. The plaintext exists
+         *     only in this request, the check and encryption memory.
+         */
         put: operations["byok_set"];
         post?: never;
         /** Remove a credential, returning to pooled service or required-policy refusal. */
         delete: operations["byok_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/{org}/provider-endpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List an organisation's endpoints, by name. */
+        get: operations["endpoints_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/{org}/provider-endpoints/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Register or replace an endpoint after checking it: its address must be allowed, and a key it
+         *     refuses (401 or 403) is `provider_key_rejected` with nothing stored. An endpoint that cannot be
+         *     reached is saved `not_verified`. Moving a keyed endpoint to another origin needs its key again.
+         */
+        put: operations["endpoints_put"];
+        post?: never;
+        /** Remove an endpoint: its models stop being callable. */
+        delete: operations["endpoints_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/orgs/{org}/provider-endpoints/{name}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check an endpoint again and record what it found. A key it refuses is recorded
+         *     `not_verified` and answered `provider_key_rejected`.
+         */
+        post: operations["endpoints_check"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -966,9 +1048,17 @@ export interface components {
             last_used_at: string | null;
             policy: components["schemas"]["CredentialPolicy"];
             provider: string;
+            /** @description What the provider said about the key when it was saved. */
+            status: components["schemas"]["CredentialStatus"];
+            /** @description Who saved the key, as the integrator named them. */
+            updated_by: string | null;
+            /** @description When the provider accepted the key; null when it was not verified. */
+            verified_at: string | null;
         };
         /** @enum {string} */
         CredentialPolicy: "prefer" | "require";
+        /** @enum {string} */
+        CredentialStatus: "verified" | "not_verified";
         DirectoryItem: {
             display_name: string | null;
             identity: string;
@@ -1000,9 +1090,30 @@ export interface components {
             status: components["schemas"]["SourceStatus"];
             total_models: number | null;
         };
+        EndpointCheckResult: {
+            endpoint: components["schemas"]["EndpointMetadata"];
+            /** @description The model ids the endpoint listed at this check; empty when it listed none. */
+            listed_models: string[];
+        };
+        EndpointMetadata: {
+            base_url: string;
+            created_at: string;
+            enabled: boolean;
+            /** @description The last four characters of the key; null when the endpoint has none. */
+            key_hint: string | null;
+            last_checked_at: string | null;
+            last_used_at: string | null;
+            models: string[];
+            name: string;
+            status: components["schemas"]["EndpointState"];
+            updated_at: string;
+            updated_by: string | null;
+        };
+        /** @enum {string} */
+        EndpointState: "reachable" | "not_verified";
         ErrorBody: {
             /** @enum {string} */
-            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "price_unavailable" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict";
+            code: "invalid_request" | "invalid_api_key" | "key_revoked" | "key_expired" | "project_unavailable" | "organisation_unavailable" | "model_not_allowed" | "byok_required" | "project_host_mismatch" | "model_not_found" | "route_not_found" | "method_not_allowed" | "capability_unsupported" | "body_too_large" | "rate_limited" | "insufficient_credit" | "hard_limit_reached" | "entitlement_missing" | "price_unavailable" | "idempotency_conflict" | "upstream_unavailable" | "upstream_error" | "deadline_exceeded" | "service_unavailable" | "internal" | "invalid_token" | "permission_denied" | "not_found" | "conflict" | "provider_key_rejected" | "endpoint_address_refused" | "limit_reached";
             message: string;
             /** Format: uuid */
             request_id: string;
@@ -1634,6 +1745,9 @@ export interface components {
             total: number;
             users: components["schemas"]["PlatformUserBody"][];
         };
+        PolicyBody: {
+            policy: components["schemas"]["CredentialPolicy"];
+        };
         /** @enum {string} */
         ProjectAccess: "enabled" | "not_enabled" | "not_applicable";
         /** @description A project on the wire. */
@@ -1653,6 +1767,18 @@ export interface components {
         };
         /** @enum {string} */
         Publication: "published";
+        PutEndpoint: {
+            /** @description The OpenAI-compatible root requests go under, such as `https://llm.example.com/v1`. */
+            base_url: string;
+            /** @description Whether the models are callable; `true` when absent. */
+            enabled?: boolean | null;
+            /** @description The endpoint's key: absent keeps the stored one, `null` removes it. */
+            key?: string | null;
+            /** @description The model names to expose as `self/<name>/<model>`. */
+            models: string[];
+            /** @description The display name of the person making the change. */
+            updated_by?: string | null;
+        };
         /**
          * @description `PATCH /v1/orgs/{org}`: the new name, the only field M1 changes. Any other field (`plan`,
          *     `status`, …) is refused, never silently ignored.
@@ -1719,6 +1845,8 @@ export interface components {
         SetCredential: {
             credential: string;
             policy?: components["schemas"]["CredentialPolicy"] | null;
+            /** @description The display name of the person making the change, as the integrator shows it. */
+            updated_by?: string | null;
         };
         /** @enum {string} */
         SourceCoverage: "complete" | "unproven";
@@ -2531,6 +2659,53 @@ export interface operations {
             "5XX": components["responses"]["Error"];
         };
     };
+    models_catalogue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueModelBody"][];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    models_one: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description model identifier */
+                model: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueModelBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
     supplier_catalogue_version: {
         parameters: {
             query?: never;
@@ -2674,53 +2849,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LogPage"];
-                };
-            };
-            "4XX": components["responses"]["Error"];
-            "5XX": components["responses"]["Error"];
-        };
-    };
-    models_catalogue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogueModelBody"][];
-                };
-            };
-            "4XX": components["responses"]["Error"];
-            "5XX": components["responses"]["Error"];
-        };
-    };
-    models_one: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description model identifier */
-                model: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogueModelBody"];
                 };
             };
             "4XX": components["responses"]["Error"];
@@ -2950,6 +3078,60 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OrganisationBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    byok_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The organisation's BYOK policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    byok_policy_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyBody"];
+            };
+        };
+        responses: {
+            /** @description The organisation's BYOK policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyBody"];
                 };
             };
             "4XX": components["responses"]["Error"];
@@ -3460,6 +3642,114 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    endpoints_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Endpoint metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndpointMetadata"][];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    endpoints_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+                /** @description endpoint name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutEndpoint"];
+            };
+        };
+        responses: {
+            /** @description The endpoint and what its check listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndpointCheckResult"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    endpoints_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+                /** @description endpoint name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    endpoints_check: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+                /** @description endpoint name */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The endpoint and what its check listed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndpointCheckResult"];
+                };
             };
             "4XX": components["responses"]["Error"];
             "5XX": components["responses"]["Error"];

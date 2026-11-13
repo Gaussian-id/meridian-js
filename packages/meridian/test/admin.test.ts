@@ -128,10 +128,17 @@ const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
   'PUT /v1/orgs/{org}/provider-credentials/{provider}': ops =>
     ops.providerCredentials.put('o1', 'gemini', { credential: 'x' }),
   'DELETE /v1/orgs/{org}/provider-credentials/{provider}': ops => ops.providerCredentials.delete('o1', 'gemini'),
+  'GET /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.get('o1'),
+  'PUT /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.put('o1', { policy: 'require' }),
+  'GET /v1/orgs/{org}/provider-endpoints': ops => ops.providerEndpoints.list('o1'),
+  'PUT /v1/orgs/{org}/provider-endpoints/{name}': ops =>
+    ops.providerEndpoints.put('o1', 'lab', { base_url: 'https://llm.example.com/v1', models: [] }),
+  'POST /v1/orgs/{org}/provider-endpoints/{name}/check': ops => ops.providerEndpoints.check('o1', 'lab'),
+  'DELETE /v1/orgs/{org}/provider-endpoints/{name}': ops => ops.providerEndpoints.delete('o1', 'lab'),
   'GET /v1/orgs/{org}/projects/{project}/models': ops => ops.projectModels.get('o1', 'p1'),
   'PUT /v1/orgs/{org}/projects/{project}/models': ops => ops.projectModels.put('o1', 'p1', { models: [] }),
-  'GET /v1/models': ops => ops.models.list(),
-  'GET /v1/models/{model}': ops => ops.models.get('m1'),
+  'GET /v1/catalogue/models': ops => ops.models.list(),
+  'GET /v1/catalogue/models/{model}': ops => ops.models.get('m1'),
   'GET /v1/analytics/usage': ops => ops.analytics.usage({ project_id: 'p1' }),
   'GET /v1/logs': ops => ops.logs.list({ project_id: 'p1' })
 }
@@ -139,6 +146,16 @@ const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
 // D-27 / owner decision 10 Oct: the supplier-catalogue operations return only supplier prices, so the admin client
 // does not wrap them at all; the billing service reads them from the engine's admin API directly.
 const EXCLUDED_PRICE_OPERATIONS = ['GET /v1/catalogue', 'GET /v1/catalogue/{version}']
+
+// Operator reads the admin client has never wrapped (inventory, routing records, runtime, the model directory)
+const UNWRAPPED_OPERATIONS = [
+  'GET /v1/inventory/{provider}',
+  'GET /v1/inventory/{provider}/diff',
+  'GET /v1/inventory/{provider}/history',
+  'GET /v1/orgs/{org}/projects/{project}/model-directory',
+  'GET /v1/routing-records/{request_id}',
+  'GET /v1/runtime'
+]
 
 interface Spec {
   paths: Record<string, Record<string, { security?: Record<string, unknown>[] }>>
@@ -170,7 +187,7 @@ const jsonResponder = (payload: unknown, log?: string[]) =>
   }) as typeof fetch
 
 describeEngine('admin operations match the pinned spec', () => {
-  it('wraps exactly the IntegratorKey operations, minus the excluded price operations', async () => {
+  it('wraps exactly the IntegratorKey operations, minus the excluded price and unwrapped operator ones', async () => {
     const engine = testEngine()
     const sent: string[] = []
 
@@ -181,13 +198,19 @@ describeEngine('admin operations match the pinned spec', () => {
 
     for (const call of Object.values(calls)) await call(ops)
 
-    const wrapped = integratorOperations.filter(operation => !EXCLUDED_PRICE_OPERATIONS.includes(operation))
+    const wrapped = integratorOperations.filter(
+      operation => !EXCLUDED_PRICE_OPERATIONS.includes(operation) && !UNWRAPPED_OPERATIONS.includes(operation)
+    )
 
     // No method hides outside the table, and each call reached the route the spec declares
     const methodCount = Object.values(ops).reduce((sum, group: object) => sum + Object.keys(group).length, 0)
 
-    expect(integratorOperations).toHaveLength(23)
-    expect(EXCLUDED_PRICE_OPERATIONS.every(operation => integratorOperations.includes(operation))).toBe(true)
+    expect(integratorOperations).toHaveLength(35)
+    expect(
+      [...EXCLUDED_PRICE_OPERATIONS, ...UNWRAPPED_OPERATIONS].every(operation =>
+        integratorOperations.includes(operation)
+      )
+    ).toBe(true)
     expect(methodCount).toBe(Object.keys(calls).length)
     expect(Object.keys(calls).sort()).toEqual([...wrapped].sort())
     expect(sent.sort()).toEqual([...wrapped].sort())
@@ -306,6 +329,62 @@ describeEngine('cost opacity (D-27)', () => {
   })
 })
 
+describeFake('self-hosted endpoints and the BYOK policy', () => {
+  it('registers, checks and removes an endpoint without echoing its key', async () => {
+    const { engine, ops } = admin()
+    const { data: org } = await ops.orgs.create({ name: 'SDK endpoints', external_reference: unique() })
+
+    const put = await ops.providerEndpoints.put(org!.id, 'lab', {
+      base_url: 'https://llm.example.com/v1',
+      key: 'endpoint-secret-0000',
+      models: ['llama3:8b'],
+      updated_by: 'Ada Lovelace'
+    })
+
+    const listed = await ops.providerEndpoints.list(org!.id)
+    const checked = await ops.providerEndpoints.check(org!.id, 'lab')
+    const removed = await ops.providerEndpoints.delete(org!.id, 'lab')
+
+    expect(put.error).toBeNull()
+    expect(put.data).toMatchObject({ endpoint: { name: 'lab', key_hint: '0000', models: ['llama3:8b'] } })
+    expect(put.data!.listed_models).toEqual(expect.any(Array))
+    expect(listed.data).toMatchObject([{ name: 'lab', enabled: true, updated_by: 'Ada Lovelace' }])
+    expect(checked.data).toMatchObject({ endpoint: { name: 'lab' } })
+    expect(removed).toEqual({ data: null, error: null })
+    expect(JSON.stringify([put, listed, checked])).not.toContain('endpoint-secret-0000')
+
+    const sent = engine.fake!.requests.slice(-4).map(request => `${request.method} ${new URL(request.url).pathname}`)
+
+    expect(sent).toEqual([
+      `PUT /v1/orgs/${org!.id}/provider-endpoints/lab`,
+      `GET /v1/orgs/${org!.id}/provider-endpoints`,
+      `POST /v1/orgs/${org!.id}/provider-endpoints/lab/check`,
+      `DELETE /v1/orgs/${org!.id}/provider-endpoints/lab`
+    ])
+  })
+
+  it('answers an engine refusal as an error value', async () => {
+    const { engine, ops } = admin()
+
+    engine.fake!.next(engineError('endpoint_address_refused'), engineError('limit_reached'))
+
+    const refused = await ops.providerEndpoints.put('o1', 'lab', { base_url: 'http://10.0.0.1/v1', models: [] })
+    const full = await ops.providerEndpoints.put('o1', 'lab', { base_url: 'https://llm.example.com/v1', models: [] })
+
+    expect(refused.error).toMatchObject({ code: 'endpoint_address_refused', status: 400 })
+    expect(full.error).toMatchObject({ code: 'limit_reached', status: 409 })
+  })
+
+  it('reads and sets the BYOK policy', async () => {
+    const { ops } = admin()
+    const { data: org } = await ops.orgs.create({ name: 'SDK policy', external_reference: unique() })
+
+    expect((await ops.byokPolicy.get(org!.id)).data).toEqual({ policy: 'prefer' })
+    expect((await ops.byokPolicy.put(org!.id, { policy: 'require' })).data).toEqual({ policy: 'require' })
+    expect((await ops.byokPolicy.get(org!.id)).data).toEqual({ policy: 'require' })
+  })
+})
+
 describeFake('admin path parameters', () => {
   it.each(['', '.', '..', '%2e%2E', '%2E.'])('rejects %j as a resource id without sending anything', async bad => {
     const { engine, ops } = admin()
@@ -313,6 +392,8 @@ describeFake('admin path parameters', () => {
     const results = [
       await ops.keys.revoke('o1', 'p1', bad),
       await ops.providerCredentials.delete('o1', bad),
+      await ops.providerEndpoints.delete('o1', bad),
+      await ops.providerEndpoints.check('o1', bad),
       await ops.projects.get('o1', bad),
       await ops.orgs.getByReference(bad)
     ]

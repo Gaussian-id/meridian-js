@@ -1,6 +1,6 @@
 {
   "name": "@gaussian-id/meridian-expo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gauss Meridian for Expo and React Native: a keyless client that calls your own server route.",
   "keywords": [
     "meridian",

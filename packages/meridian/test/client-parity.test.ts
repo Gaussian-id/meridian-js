@@ -46,6 +46,13 @@ describeFake('admin writes retry only on rate_limited', () => {
         ops.providerCredentials.put('o1', 'gemini', { api_key: 'k', policy: 'prefer' } as never)
     ],
     [
+      'providerEndpoints.put',
+      (ops: ReturnType<typeof admin>['ops']) =>
+        ops.providerEndpoints.put('o1', 'lab', { base_url: 'https://llm.example.com/v1', models: [] })
+    ],
+    ['providerEndpoints.check', (ops: ReturnType<typeof admin>['ops']) => ops.providerEndpoints.check('o1', 'lab')],
+    ['byokPolicy.put', (ops: ReturnType<typeof admin>['ops']) => ops.byokPolicy.put('o1', { policy: 'require' })],
+    [
       'projectModels.put',
       (ops: ReturnType<typeof admin>['ops']) => ops.projectModels.put('o1', 'p1', { models: [] } as never)
     ],

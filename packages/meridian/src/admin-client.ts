@@ -66,6 +66,33 @@ export interface AdminClient {
     ): Out<P['/v1/orgs/{org}/provider-credentials/{provider}']['put']>
     delete(org: string, provider: string, o?: RequestOptions): Done
   }
+
+  /** What happens when a customer key fails: `prefer` falls back to Gaussian's key, `require` fails the request. */
+  byokPolicy: {
+    get(org: string, o?: RequestOptions): Out<P['/v1/orgs/{org}/byok-policy']['get']>
+    put(
+      org: string,
+      body: Body<P['/v1/orgs/{org}/byok-policy']['put']>,
+      o?: RequestOptions
+    ): Out<P['/v1/orgs/{org}/byok-policy']['put']>
+  }
+
+  /** The organisation's own OpenAI-compatible servers, called as `self/<name>/<model>`. A key is never echoed. */
+  providerEndpoints: {
+    list(org: string, o?: RequestOptions): Out<P['/v1/orgs/{org}/provider-endpoints']['get']>
+    put(
+      org: string,
+      name: string,
+      body: Body<P['/v1/orgs/{org}/provider-endpoints/{name}']['put']>,
+      o?: RequestOptions
+    ): Out<P['/v1/orgs/{org}/provider-endpoints/{name}']['put']>
+    check(
+      org: string,
+      name: string,
+      o?: RequestOptions
+    ): Out<P['/v1/orgs/{org}/provider-endpoints/{name}/check']['post']>
+    delete(org: string, name: string, o?: RequestOptions): Done
+  }
   projectModels: {
     get(org: string, project: string, o?: RequestOptions): Out<P['/v1/orgs/{org}/projects/{project}/models']['get']>
     put(
@@ -76,8 +103,8 @@ export interface AdminClient {
     ): Out<P['/v1/orgs/{org}/projects/{project}/models']['put']>
   }
   models: {
-    list(o?: RequestOptions): Out<P['/v1/models']['get']>
-    get(model: string, o?: RequestOptions): Out<P['/v1/models/{model}']['get']>
+    list(o?: RequestOptions): Out<P['/v1/catalogue/models']['get']>
+    get(model: string, o?: RequestOptions): Out<P['/v1/catalogue/models/{model}']['get']>
   }
   analytics: {
     usage(query: Query<P['/v1/analytics/usage']['get']>, o?: RequestOptions): Out<P['/v1/analytics/usage']['get']>
@@ -195,13 +222,23 @@ function createAdminApi(transport: Transport): AdminClient {
       put: (org, provider, body, o) => write('PUT', path`/v1/orgs/${org}/provider-credentials/${provider}`, body, o),
       delete: (org, provider, o) => remove(path`/v1/orgs/${org}/provider-credentials/${provider}`, o)
     },
+    byokPolicy: {
+      get: (org, o) => read(path`/v1/orgs/${org}/byok-policy`, o),
+      put: (org, body, o) => write('PUT', path`/v1/orgs/${org}/byok-policy`, body, o)
+    },
+    providerEndpoints: {
+      list: (org, o) => read(path`/v1/orgs/${org}/provider-endpoints`, o),
+      put: (org, name, body, o) => write('PUT', path`/v1/orgs/${org}/provider-endpoints/${name}`, body, o),
+      check: (org, name, o) => write('POST', path`/v1/orgs/${org}/provider-endpoints/${name}/check`, undefined, o),
+      delete: (org, name, o) => remove(path`/v1/orgs/${org}/provider-endpoints/${name}`, o)
+    },
     projectModels: {
       get: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}/models`, o),
       put: (org, project, body, o) => write('PUT', path`/v1/orgs/${org}/projects/${project}/models`, body, o)
     },
     models: {
-      list: o => read('/v1/models', o),
-      get: (model, o) => read(path`/v1/models/${model}`, o)
+      list: o => read('/v1/catalogue/models', o),
+      get: (model, o) => read(path`/v1/catalogue/models/${model}`, o)
     },
     analytics: { usage: (query, o) => read('/v1/analytics/usage', o, query) },
     logs: { list: (query, o) => read('/v1/logs', o, query) }
