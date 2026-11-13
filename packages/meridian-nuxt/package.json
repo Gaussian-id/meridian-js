@@ -1,6 +1,6 @@
 {
   "name": "@gaussian-id/meridian-nuxt",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Gauss Meridian for Nuxt: a Nuxt module with a server client and composables.",
   "keywords": [
     "meridian",

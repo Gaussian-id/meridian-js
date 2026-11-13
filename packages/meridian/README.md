@@ -9,7 +9,7 @@
 
 The official TypeScript SDK for Gauss Meridian: one API for many AI models, routed by Meridian.
 
-> **Status:** Public preview, v0.3.0. Runtime floor: Node 22 (`engines.node >= 22`), the same floor as supabase-js. The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
+> **Status:** Public preview, v0.4.0. Runtime floor: Node 22 (`engines.node >= 22`), the same floor as supabase-js. The core package has zero runtime dependencies and also runs on Bun, Deno and edge runtimes.
 
 ## Contents
 
@@ -412,36 +412,38 @@ const { data: org, error } = await admin.orgs.create({ name: 'Acme', external_re
 
 Request and reply shapes are the engine's own (snake_case), typed from [`spec/meridian-admin.json`](https://github.com/Gaussian-id/meridian-js/blob/main/spec/meridian-admin.json). The 28 operations:
 
-| Method                                         | What it does                                                |
-| ---------------------------------------------- | ----------------------------------------------------------- |
-| `orgs.create(body)`                            | create an organisation (idempotent by `external_reference`) |
-| `orgs.get(org)`                                | read an organisation                                        |
-| `orgs.getByReference(reference)`               | read an organisation by your reference                      |
-| `orgs.list()`                                  | list organisations                                          |
-| `projects.create(org, body)`                   | create a project                                            |
-| `projects.get(org, project)`                   | read a project                                              |
-| `projects.list(org)`                           | list an organisation's projects                             |
-| `projects.update(org, project, body)`          | update a project                                            |
-| `projects.delete(org, project)`                | delete a project                                            |
-| `keys.create(org, project, body?)`             | issue a project key (`gmr_`); returns `api_key` once        |
-| `keys.list(org, project)`                      | list a project's keys                                       |
-| `keys.revoke(org, project, key)`               | revoke a key                                                |
-| `providerCredentials.list(org)`                | list provider credentials                                   |
-| `providerCredentials.put(org, provider, body)` | set a provider credential                                   |
-| `providerCredentials.delete(org, provider)`    | delete a provider credential                                |
-| `byokProviders.list()`                         | list the providers this engine takes a key for              |
-| `byokPolicy.get(org)`                          | read the BYOK policy (`prefer` or `require`)                |
-| `byokPolicy.put(org, body)`                    | set the BYOK policy                                         |
-| `providerEndpoints.list(org)`                  | list self-hosted endpoints                                  |
-| `providerEndpoints.put(org, name, body)`       | register or replace an endpoint after checking it           |
-| `providerEndpoints.check(org, name)`           | check an endpoint again and record the result               |
-| `providerEndpoints.delete(org, name)`          | delete an endpoint                                          |
-| `projectModels.get(org, project)`              | read a project's model settings                             |
-| `projectModels.put(org, project, body)`        | replace a project's model settings                          |
-| `models.list()`                                | list the active catalogue's models                          |
-| `models.get(model)`                            | read one model                                              |
-| `analytics.usage(query)`                       | usage analytics                                             |
-| `logs.list(query)`                             | request logs                                                |
+| Method                                         | What it does                                                                       |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `orgs.create(body)`                            | create an organisation (idempotent by `external_reference`)                        |
+| `orgs.get(org)`                                | read an organisation                                                               |
+| `orgs.getByReference(reference)`               | read an organisation by your reference                                             |
+| `orgs.list()`                                  | list organisations                                                                 |
+| `projects.create(org, body)`                   | create a project                                                                   |
+| `projects.get(org, project)`                   | read a project                                                                     |
+| `projects.list(org)`                           | list an organisation's projects                                                    |
+| `projects.update(org, project, body)`          | update a project                                                                   |
+| `projects.delete(org, project)`                | delete a project                                                                   |
+| `keys.create(org, project, body?)`             | issue a project key (`gmr_`); returns `api_key` once                               |
+| `keys.list(org, project)`                      | list a project's keys                                                              |
+| `keys.revoke(org, project, key)`               | revoke a key                                                                       |
+| `providerCredentials.list(org)`                | list provider credentials                                                          |
+| `providerCredentials.put(org, provider, body)` | set a provider credential                                                          |
+| `providerCredentials.delete(org, provider)`    | delete a provider credential                                                       |
+| `byokProviders.list()`                         | list the providers this engine takes a key for                                     |
+| `byokPolicy.get(org)`                          | read the organisation's routing policy (`prefer`, `require` or `self_hosted_only`) |
+| `byokPolicy.put(org, body)`                    | set the organisation's routing policy                                              |
+| `projectByokPolicy.get(org, project)`          | read a Project's policy, the policy in effect and the organisation default         |
+| `projectByokPolicy.put(org, project, body)`    | override a Project's policy, or `{ policy: null }` to inherit                      |
+| `providerEndpoints.list(org)`                  | list self-hosted endpoints                                                         |
+| `providerEndpoints.put(org, name, body)`       | register or replace an endpoint after checking it                                  |
+| `providerEndpoints.check(org, name)`           | check an endpoint again and record the result                                      |
+| `providerEndpoints.delete(org, name)`          | delete an endpoint                                                                 |
+| `projectModels.get(org, project)`              | read a project's model settings                                                    |
+| `projectModels.put(org, project, body)`        | replace a project's model settings                                                 |
+| `models.list()`                                | list the active catalogue's models                                                 |
+| `models.get(model)`                            | read one model                                                                     |
+| `analytics.usage(query)`                       | usage analytics                                                                    |
+| `logs.list(query)`                             | request logs                                                                       |
 
 Every call returns `Result<T>`. A delete or revoke resolves to `{ data: null, error: null }` on success.
 

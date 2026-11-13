@@ -2275,6 +2275,118 @@
         ]
       }
     },
+    "/v1/orgs/{org}/projects/{project}/byok-policy": {
+      "get": {
+        "summary": "One Project's BYOK policy: its own choice, the policy in effect and the organisation default.",
+        "operationId": "project_byok_policy_get",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "description": "project identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The Project's BYOK policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPolicyBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      },
+      "put": {
+        "summary": "Set one Project's BYOK policy, or `null` to inherit the organisation's default.",
+        "operationId": "project_byok_policy_set",
+        "parameters": [
+          {
+            "name": "org",
+            "in": "path",
+            "description": "org identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "description": "project identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectPolicyChoice"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The Project's BYOK policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectPolicyBody"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        },
+        "security": [
+          {
+            "AdminBearer": []
+          },
+          {
+            "IntegratorKey": []
+          }
+        ]
+      }
+    },
     "/v1/orgs/{org}/projects/{project}/keys": {
       "get": {
         "summary": "`GET …/keys`: the project's keys, oldest first, revoked ones included.",
@@ -3471,7 +3583,8 @@
         "type": "string",
         "enum": [
           "prefer",
-          "require"
+          "require",
+          "self_hosted_only"
         ]
       },
       "CredentialStatus": {
@@ -5937,6 +6050,53 @@
             "$ref": "#/components/schemas/ResourceStatusName"
           }
         }
+      },
+      "ProjectPolicyBody": {
+        "type": "object",
+        "description": "A Project's policy: its own choice (null when it inherits), the policy in effect, and the\norganisation's default.",
+        "required": [
+          "policy",
+          "effective",
+          "organisation_default"
+        ],
+        "properties": {
+          "effective": {
+            "$ref": "#/components/schemas/CredentialPolicy"
+          },
+          "organisation_default": {
+            "$ref": "#/components/schemas/CredentialPolicy"
+          },
+          "policy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CredentialPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ProjectPolicyChoice": {
+        "type": "object",
+        "description": "A Project's choice: a policy, or `null` to inherit the organisation's default. The field is\nrequired, so a body that forgets it never clears a choice.",
+        "required": [
+          "policy"
+        ],
+        "properties": {
+          "policy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/CredentialPolicy"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
       },
       "Publication": {
         "type": "string",

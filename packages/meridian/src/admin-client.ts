@@ -72,7 +72,11 @@ export interface AdminClient {
     list(o?: RequestOptions): Out<P['/v1/byok/providers']['get']>
   }
 
-  /** What happens when a customer key fails: `prefer` falls back to Gaussian's key, `require` fails the request. */
+  /**
+   * The organisation's routing policy, the default every Project inherits: `prefer` uses the organisation's keys and
+   * falls back to Gaussian's (charged), `require` uses the organisation's keys only, `self_hosted_only` serves only
+   * `self/<endpoint>/<model>` and refuses every other model.
+   */
   byokPolicy: {
     get(org: string, o?: RequestOptions): Out<P['/v1/orgs/{org}/byok-policy']['get']>
     put(
@@ -80,6 +84,24 @@ export interface AdminClient {
       body: Body<P['/v1/orgs/{org}/byok-policy']['put']>,
       o?: RequestOptions
     ): Out<P['/v1/orgs/{org}/byok-policy']['put']>
+  }
+
+  /**
+   * One Project's routing policy: its own choice (`null` inherits the organisation's), the policy in effect and the
+   * organisation default. `put` takes `{ policy: null }` to inherit again.
+   */
+  projectByokPolicy: {
+    get(
+      org: string,
+      project: string,
+      o?: RequestOptions
+    ): Out<P['/v1/orgs/{org}/projects/{project}/byok-policy']['get']>
+    put(
+      org: string,
+      project: string,
+      body: Body<P['/v1/orgs/{org}/projects/{project}/byok-policy']['put']>,
+      o?: RequestOptions
+    ): Out<P['/v1/orgs/{org}/projects/{project}/byok-policy']['put']>
   }
 
   /** The organisation's own OpenAI-compatible servers, called as `self/<name>/<model>`. A key is never echoed. */
@@ -231,6 +253,10 @@ function createAdminApi(transport: Transport): AdminClient {
     byokPolicy: {
       get: (org, o) => read(path`/v1/orgs/${org}/byok-policy`, o),
       put: (org, body, o) => write('PUT', path`/v1/orgs/${org}/byok-policy`, body, o)
+    },
+    projectByokPolicy: {
+      get: (org, project, o) => read(path`/v1/orgs/${org}/projects/${project}/byok-policy`, o),
+      put: (org, project, body, o) => write('PUT', path`/v1/orgs/${org}/projects/${project}/byok-policy`, body, o)
     },
     providerEndpoints: {
       list: (org, o) => read(path`/v1/orgs/${org}/provider-endpoints`, o),
