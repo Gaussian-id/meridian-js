@@ -747,6 +747,24 @@ export interface paths {
         patch: operations["projects_rename"];
         trace?: never;
     };
+    "/v1/orgs/{org}/projects/{project}/byok-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One Project's BYOK policy: its own choice, the policy in effect and the organisation default. */
+        get: operations["project_byok_policy_get"];
+        /** Set one Project's BYOK policy, or `null` to inherit the organisation's default. */
+        put: operations["project_byok_policy_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/orgs/{org}/projects/{project}/keys": {
         parameters: {
             query?: never;
@@ -1104,7 +1122,7 @@ export interface components {
             verified_at: string | null;
         };
         /** @enum {string} */
-        CredentialPolicy: "prefer" | "require";
+        CredentialPolicy: "prefer" | "require" | "self_hosted_only";
         /** @enum {string} */
         CredentialStatus: "verified" | "not_verified";
         DirectoryItem: {
@@ -1825,6 +1843,22 @@ export interface components {
             /** @description The project's short reference. */
             ref: string;
             status: components["schemas"]["ResourceStatusName"];
+        };
+        /**
+         * @description A Project's policy: its own choice (null when it inherits), the policy in effect, and the
+         *     organisation's default.
+         */
+        ProjectPolicyBody: {
+            effective: components["schemas"]["CredentialPolicy"];
+            organisation_default: components["schemas"]["CredentialPolicy"];
+            policy: components["schemas"]["CredentialPolicy"] | null;
+        };
+        /**
+         * @description A Project's choice: a policy, or `null` to inherit the organisation's default. The field is
+         *     required, so a body that forgets it never clears a choice.
+         */
+        ProjectPolicyChoice: {
+            policy: components["schemas"]["CredentialPolicy"] | null;
         };
         /** @enum {string} */
         Publication: "published";
@@ -3482,6 +3516,64 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    project_byok_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+                /** @description project identifier */
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The Project's BYOK policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPolicyBody"];
+                };
+            };
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    project_byok_policy_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description org identifier */
+                org: string;
+                /** @description project identifier */
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectPolicyChoice"];
+            };
+        };
+        responses: {
+            /** @description The Project's BYOK policy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectPolicyBody"];
                 };
             };
             "4XX": components["responses"]["Error"];

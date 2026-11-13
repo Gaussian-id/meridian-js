@@ -131,6 +131,9 @@ const calls: Record<string, (ops: AdminClient) => Promise<Result<unknown>>> = {
   'GET /v1/byok/providers': ops => ops.byokProviders.list(),
   'GET /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.get('o1'),
   'PUT /v1/orgs/{org}/byok-policy': ops => ops.byokPolicy.put('o1', { policy: 'require' }),
+  'GET /v1/orgs/{org}/projects/{project}/byok-policy': ops => ops.projectByokPolicy.get('o1', 'p1'),
+  'PUT /v1/orgs/{org}/projects/{project}/byok-policy': ops =>
+    ops.projectByokPolicy.put('o1', 'p1', { policy: 'self_hosted_only' }),
   'GET /v1/orgs/{org}/provider-endpoints': ops => ops.providerEndpoints.list('o1'),
   'PUT /v1/orgs/{org}/provider-endpoints/{name}': ops =>
     ops.providerEndpoints.put('o1', 'lab', { base_url: 'https://llm.example.com/v1', models: [] }),
@@ -206,7 +209,7 @@ describeEngine('admin operations match the pinned spec', () => {
     // No method hides outside the table, and each call reached the route the spec declares
     const methodCount = Object.values(ops).reduce((sum, group: object) => sum + Object.keys(group).length, 0)
 
-    expect(integratorOperations).toHaveLength(36)
+    expect(integratorOperations).toHaveLength(38)
     expect(
       [...EXCLUDED_PRICE_OPERATIONS, ...UNWRAPPED_OPERATIONS].every(operation =>
         integratorOperations.includes(operation)
@@ -411,6 +414,32 @@ describeFake('self-hosted endpoints and the BYOK policy', () => {
     expect((await ops.byokPolicy.get(org!.id)).data).toEqual({ policy: 'prefer' })
     expect((await ops.byokPolicy.put(org!.id, { policy: 'require' })).data).toEqual({ policy: 'require' })
     expect((await ops.byokPolicy.get(org!.id)).data).toEqual({ policy: 'require' })
+    expect((await ops.byokPolicy.put(org!.id, { policy: 'self_hosted_only' })).data).toEqual({
+      policy: 'self_hosted_only'
+    })
+  })
+
+  it('reads, overrides and clears a Project policy over the organisation default', async () => {
+    const { ops } = admin()
+    const { data: org } = await ops.orgs.create({ name: 'SDK project policy', external_reference: unique() })
+    const { data: project } = await ops.projects.create(org!.id, { name: 'Production' })
+
+    expect((await ops.projectByokPolicy.get(org!.id, project!.id)).data).toEqual({
+      policy: null,
+      effective: 'prefer',
+      organisation_default: 'prefer'
+    })
+    await ops.byokPolicy.put(org!.id, { policy: 'self_hosted_only' })
+    expect((await ops.projectByokPolicy.put(org!.id, project!.id, { policy: 'require' })).data).toEqual({
+      policy: 'require',
+      effective: 'require',
+      organisation_default: 'self_hosted_only'
+    })
+    expect((await ops.projectByokPolicy.put(org!.id, project!.id, { policy: null })).data).toEqual({
+      policy: null,
+      effective: 'self_hosted_only',
+      organisation_default: 'self_hosted_only'
+    })
   })
 })
 

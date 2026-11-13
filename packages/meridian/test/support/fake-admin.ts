@@ -12,14 +12,17 @@ interface Project {
   name: string
 }
 
+type Policy = 'prefer' | 'require' | 'self_hosted_only'
+
 /** An in-memory admin API speaking the engine's wire shapes. */
 export function createFakeAdmin(): AdminRouter {
   const orgs = new Map<string, Org>()
   const projects = new Map<string, Project>()
   const keys = new Map<string, { id: string; project_id: string; key_prefix: string; name: string | null }>()
   const models = new Map<string, string[]>()
-  const credentials = new Map<string, { provider: string; hint: string; policy: 'prefer' | 'require' }>()
-  const policies = new Map<string, 'prefer' | 'require'>()
+  const credentials = new Map<string, { provider: string; hint: string; policy: Policy }>()
+  const policies = new Map<string, Policy>()
+  const projectPolicies = new Map<string, Policy | null>()
   const endpoints = new Map<string, Record<string, unknown>>()
   let next = 0
   const id = (prefix: string) => `${prefix}_${++next}`
@@ -83,7 +86,7 @@ export function createFakeAdmin(): AdminRouter {
       const record = {
         provider,
         hint: String(body.credential).slice(-4),
-        policy: (body.policy ?? 'prefer') as 'prefer' | 'require'
+        policy: (body.policy ?? 'prefer') as Policy
       }
 
       credentials.set(provider, record)
@@ -93,7 +96,7 @@ export function createFakeAdmin(): AdminRouter {
 
     // [4] The BYOK policy, and self-hosted endpoints (a key is kept as its last four characters only)
     if (parts[3] === 'byok-policy') {
-      if (request.method === 'PUT') policies.set(org.id, body.policy as 'prefer' | 'require')
+      if (request.method === 'PUT') policies.set(org.id, body.policy as Policy)
 
       return json(200, { policy: policies.get(org.id) ?? 'prefer' })
     }
@@ -188,6 +191,23 @@ export function createFakeAdmin(): AdminRouter {
       keys.delete(parts[6]!)
 
       return { status: 204 }
+    }
+
+    // [5] A Project's policy: its own choice (null inherits), the policy in effect and the organisation default
+    if (parts[5] === 'byok-policy') {
+      if (request.method === 'PUT') {
+        if (!('policy' in body)) return engineError('invalid_request')
+        projectPolicies.set(project.id, body.policy as Policy | null)
+      }
+
+      const own = projectPolicies.get(project.id) ?? null
+      const organisationDefault = policies.get(org.id) ?? 'prefer'
+
+      return json(200, {
+        policy: own,
+        effective: own ?? organisationDefault,
+        organisation_default: organisationDefault
+      })
     }
 
     if (parts[5] === 'models') {

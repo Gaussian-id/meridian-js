@@ -1,5 +1,16 @@
 # @gaussian-id/meridian-nuxt
 
+## 0.4.0
+
+### Minor Changes
+
+- `admin.projectByokPolicy.get(org, project)` and `.put(org, project, { policy })`: a Project's routing policy over the organisation default (`{ policy: null }` inherits), answered as `{ policy, effective, organisation_default }`. `byokPolicy` takes the new `self_hosted_only`, which serves only `self/<endpoint>/<model>`. Synced to engine 0848f569 (OP. SIGIL slice 6).
+
+### Patch Changes
+
+- Updated dependencies
+  - @gaussian-id/meridian@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
