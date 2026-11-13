@@ -4,13 +4,21 @@
 
 ### Minor Changes
 
-- `admin.projectByokPolicy.get(org, project)` and `.put(org, project, { policy })`: a Project's routing policy over the organisation default (`{ policy: null }` inherits), answered as `{ policy, effective, organisation_default }`. `byokPolicy` takes the new `self_hosted_only`, which serves only `self/<endpoint>/<model>`. Synced to engine 0848f569 (OP. SIGIL slice 6).
+- `admin.projectByokPolicy.get(org, project)` and `.put(org, project, { policy })`: a Project's routing policy over the organisation default (`{ policy: null }` inherits), answered as `{ policy, effective, organisation_default }`. `byokPolicy` takes the new `self_hosted_only`, which serves only `self/<endpoint>/<model>`. Synced to engine 7b08da98 (OP. SIGIL slice 6).
+
+### Fixed
+
+- Nothing: this release only adds API.
+
+### Why minor, not patch
+
+New public API (`projectByokPolicy`) and a new accepted value (`self_hosted_only`). Code written for 0.4.0 doesn't run on 0.3.x, so a patch was not possible.
 
 ## 0.3.0
 
 ### Minor Changes
 
-- Admin client: `byokProviders.list()` (the providers the engine takes a key for, with display names, key hints and docs links), `byokPolicy` (`get`, `put`) and `providerEndpoints` (`list`, `put`, `check`, `delete`) for an organisation's self-hosted servers (`api_format` openai or anthropic, `auth` none, bearer or a custom header, `allow_http`, and `warnings` such as `unencrypted_http` on put and check), and the engine's `provider_key_rejected`, `endpoint_address_refused` and `limit_reached` codes. Synced to engine 8aec3359 (OP. SIGIL): provider credentials carry `status`, `verified_at` and `updated_by`, and `models.list`/`models.get` read `/v1/catalogue/models` (the engine's one-port admin path).
+- Admin client: `byokProviders.list()` (the providers the engine takes a key for, with display names, key hints and docs links), `byokPolicy` (`get`, `put`) and `providerEndpoints` (`list`, `put`, `check`, `delete`) for an organisation's self-hosted servers (`api_format` openai or anthropic, `auth` none, bearer or a custom header, `allow_http`, and `warnings` such as `unencrypted_http` on put and check), and the engine's `provider_key_rejected`, `endpoint_address_refused` and `limit_reached` codes. Synced to engine 027350b9 (OP. SIGIL): provider credentials carry `status`, `verified_at` and `updated_by`, and `models.list`/`models.get` read `/v1/catalogue/models` (the engine's one-port admin path).
 
 ### Fixed
 
